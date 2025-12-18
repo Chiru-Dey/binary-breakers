@@ -19,7 +19,7 @@ export default function Navbar() {
   return (
     <nav ref={container} className="fixed top-0 left-0 w-full p-6 z-50 flex justify-between items-center mix-blend-difference text-white">
       <Link to="/" className="text-2xl font-bold tracking-tighter uppercase font-display">
-        Brain<span className="text-brand-primary">Battle</span>
+        Eventa<span className="text-brand-primary">Sports</span>
       </Link>
       
       <div className="flex gap-8 font-medium">

@@ -6,6 +6,9 @@ import ThreeBackground from './components/ThreeBackground';
 import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
 import TournamentDetails from './pages/TournamentDetails';
+import Teams from './pages/Teams';
+import About from './pages/About';
+import CreateTournament from './pages/CreateTournament';
 
 function App() {
 
@@ -38,6 +41,9 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/tournaments" element={<Dashboard />} />
           <Route path="/tournaments/:id" element={<TournamentDetails />} />
+          <Route path="/teams" element={<Teams />} />
+          <Route path="/about" element={<About />} />
+          <Route path="/create" element={<CreateTournament />} />
         </Routes>
       </div>
     </Router>
