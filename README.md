@@ -32,7 +32,7 @@ Make sure you have the following installed on your machine:
 ### Cloning the Repository
 
 ```bash
-git clone https://github.com/adrianhajdin/gsap_macbook_landing.git
+git clone https://github.com/Chiru-Dey/binary-breakers.git
 cd gsap_macbook_landing
 ```
 
