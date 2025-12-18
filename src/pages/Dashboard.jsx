@@ -42,10 +42,7 @@ export default function Dashboard() {
     const [showCreate, setShowCreate] = useState(false);
     const [newTournament, setNewTournament] = useState({ name: '', game_type: '' });
     const container = useRef();
-    const headerRef = useRef();
-    const titleRef = useRef();
-    const subtitleRef = useRef();
-    const btnRef = useRef();
+    const hasAnimated = useRef(false);
 
     const fetchTournaments = () => {
         api.getTournaments().then(data => {
@@ -61,31 +58,26 @@ export default function Dashboard() {
         fetchTournaments();
     }, []);
 
-    // Run animations ONLY when loading is complete and refs are available
+    // Run animation only once after initial load
     useGSAP(() => {
-        if (loading) return; // Don't animate while loading
+        if (loading || hasAnimated.current) return;
+        hasAnimated.current = true;
 
-        const tl = gsap.timeline({ delay: 0.2 });
+        gsap.from('.page-title', {
+            clipPath: 'inset(0 100% 0 0)',
+            duration: 0.8,
+            ease: 'power4.out',
+            delay: 0.2
+        });
 
-        // Animate using refs instead of class selectors
-        if (titleRef.current) {
-            tl.fromTo(titleRef.current,
-                { clipPath: 'inset(0 100% 0 0)', opacity: 0 },
-                { clipPath: 'inset(0 0% 0 0)', opacity: 1, duration: 0.8, ease: 'power4.out' }
-            );
-        }
-        if (subtitleRef.current) {
-            tl.from(subtitleRef.current, {
-                opacity: 0, y: 20, duration: 0.5, ease: 'power3.out'
-            }, '-=0.3');
-        }
-        if (btnRef.current) {
-            tl.from(btnRef.current, {
-                opacity: 0, y: 20, duration: 0.4, ease: 'power2.out'
-            }, '-=0.2');
-        }
+        gsap.from('.page-subtitle', {
+            opacity: 0, y: 20, duration: 0.5, ease: 'power3.out', delay: 0.4
+        });
 
-        // Animate tournament cards
+        gsap.from('.create-btn', {
+            opacity: 0, y: 20, duration: 0.4, ease: 'power2.out', delay: 0.5
+        });
+
         if (tournaments.length > 0) {
             gsap.from('.tournament-card', {
                 y: 50,
@@ -96,7 +88,7 @@ export default function Dashboard() {
                 delay: 0.6
             });
         }
-    }, { scope: container, dependencies: [loading, tournaments] });
+    }, { scope: container, dependencies: [loading] });
 
     const handleCreate = async (e) => {
         e.preventDefault();
@@ -109,7 +101,7 @@ export default function Dashboard() {
 
     if (loading) {
         return (
-            <div className="pt-32 min-h-screen flex items-center justify-center">
+            <div className="pt-32 min-h-screen flex items-center justify-center relative z-10">
                 <div className="text-center">
                     <div className="w-16 h-16 border-4 border-brand-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
                     <p className="text-xl text-white/60">Loading Tournaments...</p>
@@ -119,25 +111,24 @@ export default function Dashboard() {
     }
 
     return (
-        <main ref={container} className="pt-32 px-6 min-h-screen">
-            <header ref={headerRef} className="max-w-7xl mx-auto mb-16 flex justify-between items-end">
+        <main ref={container} className="pt-32 px-6 min-h-screen relative z-10">
+            <header className="max-w-7xl mx-auto mb-16 flex justify-between items-end">
                 <div>
-                    <h1 ref={titleRef} className="text-6xl font-black font-display uppercase tracking-tighter mb-4">
+                    <h1 className="page-title text-6xl font-black font-display uppercase tracking-tighter mb-4">
                         Tournaments
                     </h1>
-                    <p ref={subtitleRef} className="text-white/60">Select a tournament to manage or view results.</p>
+                    <p className="page-subtitle text-white/60">Select a tournament to manage or view results.</p>
                 </div>
-                <button
-                    ref={btnRef}
+                <button 
                     onClick={() => setShowCreate(!showCreate)}
-                    className="px-6 py-3 bg-brand-primary font-bold hover:bg-white hover:text-black transition-colors"
+                    className="create-btn px-6 py-3 bg-brand-primary font-bold hover:bg-white hover:text-black transition-colors"
                 >
                     + Create New
                 </button>
             </header>
 
             {showCreate && (
-                <div className="max-w-7xl mx-auto mb-12 p-8 bg-white/5 border border-brand-primary/30 rounded-2xl animate-in fade-in slide-in-from-top-4 duration-300">
+                <div className="max-w-7xl mx-auto mb-12 p-8 bg-white/5 border border-brand-primary/30 rounded-2xl">
                     <h2 className="text-2xl font-bold mb-6">Create New Tournament</h2>
                     <form onSubmit={handleCreate} className="flex flex-wrap gap-4">
                         <input
@@ -145,14 +136,16 @@ export default function Dashboard() {
                             placeholder="Tournament Name"
                             value={newTournament.name}
                             onChange={(e) => setNewTournament({ ...newTournament, name: e.target.value })}
-                            className="flex-1 min-w-[200px] bg-black/50 border border-white/20 p-4 rounded-lg focus:outline-none focus:border-brand-primary text-white"
+                            className="flex-1 min-w-[200px] bg-black/50 border border-white/20 p-4 rounded-lg focus:outline-none focus:border-brand-primary text-white cursor-text"
+                            autoComplete="off"
                         />
                         <input
                             type="text"
                             placeholder="Game Type (e.g. Valorant)"
                             value={newTournament.game_type}
                             onChange={(e) => setNewTournament({ ...newTournament, game_type: e.target.value })}
-                            className="flex-1 min-w-[200px] bg-black/50 border border-white/20 p-4 rounded-lg focus:outline-none focus:border-brand-primary text-white"
+                            className="flex-1 min-w-[200px] bg-black/50 border border-white/20 p-4 rounded-lg focus:outline-none focus:border-brand-primary text-white cursor-text"
+                            autoComplete="off"
                         />
                         <button type="submit" className="px-8 py-4 bg-brand-secondary text-black font-bold hover:brightness-110 transition-all">
                             Create Tournament
@@ -168,7 +161,7 @@ export default function Dashboard() {
                 {tournaments.length === 0 && (
                     <div className="col-span-full text-center py-20 border border-dashed border-white/20 rounded-2xl">
                         <p className="text-white/40 text-xl mb-4">No tournaments yet.</p>
-                        <button
+                        <button 
                             onClick={() => setShowCreate(true)}
                             className="px-6 py-3 bg-brand-primary text-white font-bold hover:brightness-110 transition-all"
                         >

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { api } from '../services/api';
 
@@ -10,18 +10,19 @@ export default function TournamentDetails() {
     const [activeTab, setActiveTab] = useState('teams');
     const [loading, setLoading] = useState(true);
     const [newTeamName, setNewTeamName] = useState('');
-    const [dataVersion, setDataVersion] = useState(0);
+    const [refreshKey, setRefreshKey] = useState(0);
 
     useEffect(() => {
-        let mounted = true;
-        const fetchData = async () => {
+        let isMounted = true;
+
+        (async () => {
             try {
                 const [tData, teamData, matchData] = await Promise.all([
                     api.getTournament(id),
                     api.getTeams(id),
                     api.getMatches(id)
                 ]);
-                if (mounted) {
+                if (isMounted) {
                     setTournament(tData);
                     setTeams(teamData);
                     setMatches(matchData);
@@ -29,42 +30,54 @@ export default function TournamentDetails() {
                 }
             } catch (e) {
                 console.error(e);
-                if (mounted) setLoading(false);
+                if (isMounted) setLoading(false);
             }
-        };
-        fetchData();
-        return () => { mounted = false; };
-    }, [id, dataVersion]);
+        })();
 
-    const triggerRefresh = () => setDataVersion(v => v + 1);
+        return () => { isMounted = false; };
+    }, [id, refreshKey]);
 
-    const handleAddTeam = async (e) => {
+    const triggerRefresh = useCallback(() => setRefreshKey(k => k + 1), []);
+
+    const handleAddTeam = useCallback(async (e) => {
         e.preventDefault();
         if (!newTeamName.trim()) return;
         await api.addTeam(id, newTeamName);
         setNewTeamName('');
         triggerRefresh();
-    };
+    }, [id, newTeamName, triggerRefresh]);
 
-    const handleGenerate = async () => {
+    const handleGenerate = useCallback(async () => {
         await api.generateMatches(id);
         triggerRefresh();
-    };
+    }, [id, triggerRefresh]);
 
-    const handleUpdateScore = async (matchId, score, winnerId) => {
-        await fetch(`http://127.0.0.1:5000/api/matches/${matchId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ score, winner_id: winnerId })
-        });
+    const handleUpdateScore = useCallback(async (matchId, score, winnerId) => {
+        await api.updateMatch(matchId, score, winnerId);
         triggerRefresh();
-    };
+    }, [triggerRefresh]);
 
-    if (loading) return <div className="pt-32 text-center text-2xl animate-pulse">Loading Arena Data...</div>;
-    if (!tournament) return <div className="pt-32 text-center text-red-500">Tournament not found</div>;
+    if (loading) {
+        return (
+            <div className="pt-32 min-h-screen flex items-center justify-center relative z-10">
+                <div className="text-center">
+                    <div className="w-16 h-16 border-4 border-brand-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                    <p className="text-xl text-white/60">Loading Arena Data...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (!tournament) {
+        return (
+            <div className="pt-32 min-h-screen flex items-center justify-center relative z-10">
+                <p className="text-red-500 text-2xl">Tournament not found</p>
+            </div>
+        );
+    }
 
     return (
-        <main className="pt-32 px-6 min-h-screen max-w-7xl mx-auto">
+        <main className="pt-32 px-6 min-h-screen max-w-7xl mx-auto relative z-10">
             <div className="mb-12 border-b border-white/10 pb-8">
                 <span className="text-brand-primary font-bold tracking-widest uppercase text-sm mb-2 block">{tournament.game_type}</span>
                 <h1 className="text-5xl md:text-7xl font-black font-display uppercase tracking-tighter mb-4">{tournament.name}</h1>
@@ -85,7 +98,7 @@ export default function TournamentDetails() {
             </div>
 
             {activeTab === 'teams' && (
-                <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
                         <div>
                             <h2 className="text-2xl font-bold mb-6">Registered Teams</h2>
@@ -108,7 +121,8 @@ export default function TournamentDetails() {
                                     value={newTeamName}
                                     onChange={(e) => setNewTeamName(e.target.value)}
                                     placeholder="Enter Team Name"
-                                    className="bg-black/50 border border-white/20 p-4 rounded-lg focus:outline-none focus:border-brand-primary text-white placeholder-white/30"
+                                    className="bg-black/50 border border-white/20 p-4 rounded-lg focus:outline-none focus:border-brand-primary text-white placeholder-white/30 cursor-text"
+                                    autoComplete="off"
                                 />
                                 <button type="submit" className="bg-brand-primary text-white font-bold py-3 rounded-lg hover:brightness-110 transition-all">
                                     Add Team
@@ -120,7 +134,7 @@ export default function TournamentDetails() {
             )}
 
             {activeTab === 'bracket' && (
-                <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div>
                     <div className="flex justify-between items-center mb-8">
                         <h2 className="text-2xl font-bold">Match Schedule</h2>
                         {matches.length === 0 && teams.length >= 2 && (
@@ -134,9 +148,9 @@ export default function TournamentDetails() {
                         {matches.map(match => (
                             <div key={match.id} className="p-6 bg-white/5 border border-white/10 rounded-2xl flex flex-col md:flex-row justify-between items-center gap-6">
                                 <div className="flex-1 flex justify-between items-center w-full md:w-auto">
-                                    <span className={`font-bold text-xl ${match.winner_id === match.team1.id ? 'text-brand-secondary' : 'text-white'}`}>{match.team1.name}</span>
+                                    <span className={`font-bold text-xl ${match.winner_id === match.team1?.id ? 'text-brand-secondary' : 'text-white'}`}>{match.team1?.name || 'TBD'}</span>
                                     <span className="mx-4 text-white/20 font-display font-light">VS</span>
-                                    <span className={`font-bold text-xl ${match.winner_id === match.team2.id ? 'text-brand-secondary' : 'text-white'}`}>{match.team2.name}</span>
+                                    <span className={`font-bold text-xl ${match.winner_id === match.team2?.id ? 'text-brand-secondary' : 'text-white'}`}>{match.team2?.name || 'TBD'}</span>
                                 </div>
 
                                 <div className="flex items-center gap-4 border-l border-white/10 pl-6">
@@ -148,7 +162,7 @@ export default function TournamentDetails() {
                                     <div className="flex flex-col gap-1">
                                         <button
                                             onClick={() => {
-                                                const score = prompt("Enter score (e.g. 2-1):", match.score);
+                                                const score = prompt("Enter score (e.g. 2-1):", match.score || '');
                                                 if (score) handleUpdateScore(match.id, score, match.winner_id);
                                             }}
                                             className="text-xs px-3 py-1 bg-white/10 hover:bg-white/20 rounded"
@@ -157,7 +171,7 @@ export default function TournamentDetails() {
                                         </button>
                                         <button
                                             onClick={() => {
-                                                const winner = confirm(`Set ${match.team1.name} as winner?`) ? match.team1.id : confirm(`Set ${match.team2.name} as winner?`) ? match.team2.id : null;
+                                                const winner = confirm(`Set ${match.team1?.name} as winner?`) ? match.team1?.id : confirm(`Set ${match.team2?.name} as winner?`) ? match.team2?.id : null;
                                                 if (winner) handleUpdateScore(match.id, match.score, winner);
                                             }}
                                             className="text-xs px-3 py-1 bg-white/10 hover:bg-white/20 rounded"

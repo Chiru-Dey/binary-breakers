@@ -5,54 +5,40 @@ import { useRef } from 'react';
 import { Link } from 'react-router-dom';
 
 gsap.registerPlugin(ScrollTrigger);
+
+export default function Home() {
   const container = useRef();
-const titleLine1 = useRef();
-const titleLine2 = useRef();
-const descLines = useRef([]);
-const ctaButtons = useRef([]);
   
   useGSAP(() => {
     const tl = gsap.timeline({ delay: 0.5 });
     
     // Block reveal for title lines
-    if (titleLine1.current) {
-      tl.fromTo(titleLine1.current,
-        { clipPath: 'inset(0 100% 0 0)', opacity: 0 },
-        { clipPath: 'inset(0 0% 0 0)', opacity: 1, duration: 1, ease: 'power4.out' }
-      );
-    }
-    if (titleLine2.current) {
-      tl.fromTo(titleLine2.current,
-        { clipPath: 'inset(0 100% 0 0)', opacity: 0 },
-        { clipPath: 'inset(0 0% 0 0)', opacity: 1, duration: 1, ease: 'power4.out' }
-        , '-=0.5');
-    }
-
-    // Description lines fade in one by one
-    descLines.current.forEach((line, i) => {
-      if (line) {
-        tl.from(line, {
-          opacity: 0,
-          y: 20,
-          duration: 0.6,
-          ease: 'power3.out'
-        }, i === 0 ? '-=0.3' : '-=0.4');
-      }
-    });
-
+    tl.fromTo('.hero-line-1',
+      { clipPath: 'inset(0 100% 0 0)' },
+      { clipPath: 'inset(0 0% 0 0)', duration: 1, ease: 'power4.out' }
+    )
+      .fromTo('.hero-line-2',
+        { clipPath: 'inset(0 100% 0 0)' },
+        { clipPath: 'inset(0 0% 0 0)', duration: 1, ease: 'power4.out' }
+        , '-=0.5')
+      // Description lines fade in
+      .from('.hero-desc', {
+        opacity: 0,
+        y: 20,
+        duration: 0.6,
+      stagger: 0.12,
+      ease: 'power3.out'
+    }, '-=0.3')
     // CTA buttons fade in
-    ctaButtons.current.forEach((btn, i) => {
-      if (btn) {
-        tl.from(btn, {
-          opacity: 0,
-          y: 15,
-          duration: 0.5,
-          ease: 'power2.out'
-        }, i === 0 ? '-=0.2' : '-=0.3');
-      }
-    });
+      .from('.hero-cta', {
+        opacity: 0,
+        y: 15,
+        duration: 0.5,
+      stagger: 0.1,
+      ease: 'power2.out'
+    }, '-=0.3');
 
-    // Feature cards stagger animation
+    // Feature cards with ScrollTrigger
     gsap.from('.feature-card', {
       y: 60,
       opacity: 0,
@@ -72,50 +58,32 @@ const ctaButtons = useRef([]);
       <section className="h-[85vh] flex flex-col justify-center items-center text-center z-10 relative">
         {/* Main Title with Block Reveal */}
         <h1 className="text-[12vw] md:text-[10vw] leading-[0.9] font-black tracking-tighter uppercase font-display">
-          <span
-            ref={titleLine1}
-            className="block overflow-hidden"
-            style={{ clipPath: 'inset(0 100% 0 0)' }}
-          >
+          <span className="hero-line-1 block" style={{ clipPath: 'inset(0 100% 0 0)' }}>
             Dominate
           </span>
-          <span
-            ref={titleLine2}
-            className="block overflow-hidden text-transparent bg-clip-text bg-gradient-to-r from-brand-primary to-brand-secondary"
-            style={{ clipPath: 'inset(0 100% 0 0)' }}
-          >
+          <span className="hero-line-2 block text-transparent bg-clip-text bg-gradient-to-r from-brand-primary to-brand-secondary" style={{ clipPath: 'inset(0 100% 0 0)' }}>
             The Arena
           </span>
         </h1>
         
         {/* Description - Line by Line Fade In */}
         <div className="mt-10 max-w-2xl text-xl md:text-2xl text-white/60 font-light space-y-2">
-          <p ref={el => descLines.current[0] = el} style={{ opacity: 0 }}>
-            The ultimate platform for organizing next-gen eSports tournaments.
-          </p>
-          <p ref={el => descLines.current[1] = el} style={{ opacity: 0 }}>
-            Plan tournaments, manage teams, generate schedules,
-          </p>
-          <p ref={el => descLines.current[2] = el} style={{ opacity: 0 }}>
-            and track match results digitally.
-          </p>
+          <p className="hero-desc">The ultimate platform for organizing next-gen eSports tournaments.</p>
+          <p className="hero-desc">Plan tournaments, manage teams, generate schedules,</p>
+          <p className="hero-desc">and track match results digitally.</p>
         </div>
         
         {/* CTA Buttons - Fade In */}
-        <div className="mt-14 flex gap-6">
-          <Link
-            ref={el => ctaButtons.current[0] = el}
-            to="/tournaments"
-            className="px-10 py-5 bg-brand-primary text-white font-bold text-lg hover:scale-105 transition-transform"
-            style={{ opacity: 0 }}
+        <div className="mt-14 flex flex-row gap-6 items-center justify-center flex-wrap">
+          <Link 
+            to="/tournaments" 
+            className="hero-cta px-10 py-5 bg-brand-primary text-white font-bold text-lg hover:scale-105 transition-transform"
           >
             Get Started
           </Link>
-          <Link
-            ref={el => ctaButtons.current[1] = el}
-            to="/tournaments"
-            className="px-10 py-5 border-2 border-white/30 hover:bg-white/10 font-semibold text-lg transition-colors"
-            style={{ opacity: 0 }}
+          <Link 
+            to="/tournaments" 
+            className="hero-cta px-10 py-5 border-2 border-white/30 hover:bg-white/10 font-semibold text-lg transition-colors"
           >
             View Brackets
           </Link>
