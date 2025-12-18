@@ -5,6 +5,19 @@ import random
 
 bp = Blueprint('matches', __name__, url_prefix='/api')
 
+# Get all matches (for Schedule page)
+@bp.route('/matches', methods=['GET'])
+def get_all_matches():
+    matches = db.session.execute(
+        db.select(Match).order_by(Match.scheduled_date, Match.scheduled_time)
+    ).scalars().all()
+    result = []
+    for m in matches:
+        match_dict = m.to_dict()
+        match_dict['tournament_name'] = m.tournament.name if m.tournament else None
+        result.append(match_dict)
+    return jsonify(result)
+
 @bp.route('/tournaments/<int:tournament_id>/matches', methods=['GET'])
 def get_matches(tournament_id):
     matches = db.session.execute(db.select(Match).filter_by(tournament_id=tournament_id).order_by(Match.round_number)).scalars().all()

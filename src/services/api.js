@@ -1,6 +1,30 @@
 const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5000/api';
 
 export const api = {
+  // All Teams (global)
+  getAllTeams: async () => {
+    const response = await fetch(`${API_BASE}/teams`);
+    if (!response.ok) throw new Error('Failed to fetch teams');
+    return response.json();
+  },
+
+  createTeam: async (data) => {
+    const response = await fetch(`${API_BASE}/teams`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (!response.ok) throw new Error('Failed to create team');
+    return response.json();
+  },
+
+  // All Matches (for schedule)
+  getAllMatches: async () => {
+    const response = await fetch(`${API_BASE}/matches`);
+    if (!response.ok) throw new Error('Failed to fetch matches');
+    return response.json();
+  },
+
   // Tournaments
   getTournaments: async () => {
     const response = await fetch(`${API_BASE}/tournaments`);

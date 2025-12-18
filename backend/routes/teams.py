@@ -4,6 +4,26 @@ from backend.extensions import db
 
 bp = Blueprint('teams', __name__, url_prefix='/api')
 
+# Get all teams (global)
+@bp.route('/teams', methods=['GET'])
+def get_all_teams():
+    teams = db.session.execute(db.select(Team).order_by(Team.name)).scalars().all()
+    result = []
+    for t in teams:
+        team_dict = t.to_dict()
+        team_dict['tournament_name'] = t.tournament.name if t.tournament else None
+        result.append(team_dict)
+    return jsonify(result)
+
+# Create standalone team
+@bp.route('/teams', methods=['POST'])
+def create_team():
+    data = request.get_json()
+    new_team = Team(name=data['name'], tournament_id=data.get('tournament_id'))
+    db.session.add(new_team)
+    db.session.commit()
+    return jsonify(new_team.to_dict()), 201
+
 @bp.route('/tournaments/<int:tournament_id>/teams', methods=['GET'])
 def get_teams(tournament_id):
     teams = db.session.execute(db.select(Team).filter_by(tournament_id=tournament_id)).scalars().all()
