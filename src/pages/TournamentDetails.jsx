@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { api } from '../services/api';
 import Modal from '../components/Modal';
+import ConfirmModal from '../components/ConfirmModal';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
@@ -66,6 +67,16 @@ export default function TournamentDetails() {
     const [selectedMatch, setSelectedMatch] = useState(null);
     const [editData, setEditData] = useState({ team1_id: '', team2_id: '', scheduled_date: '', scheduled_time: '', location: '' });
 
+    // Confirmation Modal State
+    const [confirmModalOpen, setConfirmModalOpen] = useState(false);
+    const [confirmConfig, setConfirmConfig] = useState({
+        title: '',
+        message: '',
+        onConfirm: () => { },
+        confirmText: 'Delete',
+        confirmColor: 'red'
+    });
+
     useEffect(() => {
         let isMounted = true;
 
@@ -114,11 +125,18 @@ export default function TournamentDetails() {
         triggerRefresh();
     };
 
-    const handleRemoveTeam = async (team) => {
-        if (confirm(`Remove team "${team.name}" from this tournament?`)) {
-            await api.removeTeamFromTournament(id, team.id);
-            triggerRefresh();
-        }
+    const handleRemoveTeam = (team) => {
+        setConfirmConfig({
+            title: 'Remove Team?',
+            message: `Remove team "${team.name}" from this tournament?`,
+            confirmText: 'Remove',
+            confirmColor: 'red',
+            onConfirm: async () => {
+                await api.removeTeamFromTournament(id, team.id);
+                triggerRefresh();
+            }
+        });
+        setConfirmModalOpen(true);
     };
 
     // Match handlers
@@ -163,18 +181,32 @@ export default function TournamentDetails() {
         triggerRefresh();
     };
 
-    const handleDeleteMatch = async (match) => {
-        if (confirm(`Delete this match?`)) {
-            await api.deleteMatch(match.id);
-            triggerRefresh();
-        }
+    const handleDeleteMatch = (match) => {
+        setConfirmConfig({
+            title: 'Delete Match?',
+            message: 'Are you sure you want to delete this match?',
+            confirmText: 'Delete',
+            confirmColor: 'red',
+            onConfirm: async () => {
+                await api.deleteMatch(match.id);
+                triggerRefresh();
+            }
+        });
+        setConfirmModalOpen(true);
     };
 
-    const handleFinishTournament = async () => {
-        if (confirm('Are you sure you want to mark this tournament as Completed?')) {
-            await api.updateTournament(id, { status: 'Completed' });
-            triggerRefresh();
-        }
+    const handleFinishTournament = () => {
+        setConfirmConfig({
+            title: 'Finish Tournament?',
+            message: 'Are you sure you want to mark this tournament as Completed? This action cannot be undone.',
+            confirmText: 'Finish',
+            confirmColor: 'green',
+            onConfirm: async () => {
+                await api.updateTournament(id, { status: 'Completed' });
+                triggerRefresh();
+            }
+        });
+        setConfirmModalOpen(true);
     };
 
     if (loading) {
@@ -625,6 +657,16 @@ export default function TournamentDetails() {
                     </div>
                 </form>
             </Modal>
-        </main>
+
+            <ConfirmModal
+                isOpen={confirmModalOpen}
+                onClose={() => setConfirmModalOpen(false)}
+                onConfirm={confirmConfig.onConfirm}
+                title={confirmConfig.title}
+                message={confirmConfig.message}
+                confirmText={confirmConfig.confirmText}
+                confirmColor={confirmConfig.confirmColor}
+            />
+        </main >
     );
 }
