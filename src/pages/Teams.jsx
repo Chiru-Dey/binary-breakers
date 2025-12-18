@@ -3,6 +3,7 @@ import { api } from '../services/api';
 import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
 import Modal from '../components/Modal';
+import ConfirmModal from '../components/ConfirmModal';
 
 function TeamCard({ team, onEdit, onDelete }) {
     return (
@@ -47,6 +48,8 @@ export default function Teams() {
     const [modalMode, setModalMode] = useState('create');
     const [selectedTeam, setSelectedTeam] = useState(null);
     const [formData, setFormData] = useState({ name: '' });
+    const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+    const [teamToDelete, setTeamToDelete] = useState(null);
     const container = useRef();
     const hasAnimated = useRef(false);
 
@@ -142,10 +145,16 @@ export default function Teams() {
         fetchTeams();
     };
 
-    const handleDelete = async (team) => {
-        if (confirm(`Delete team "${team.name}"? This will remove it from all tournaments.`)) {
-            await api.deleteTeam(team.id);
+    const handleDelete = (team) => {
+        setTeamToDelete(team);
+        setDeleteModalOpen(true);
+    };
+
+    const confirmDelete = async () => {
+        if (teamToDelete) {
+            await api.deleteTeam(teamToDelete.id);
             fetchTeams();
+            setTeamToDelete(null);
         }
     };
 
@@ -232,6 +241,16 @@ export default function Teams() {
                     </div>
                 </form>
             </Modal>
+
+            <ConfirmModal
+                isOpen={deleteModalOpen}
+                onClose={() => setDeleteModalOpen(false)}
+                onConfirm={confirmDelete}
+                title="Delete Team?"
+                message={teamToDelete ? `Are you sure you want to delete "${teamToDelete.name}"? This will remove it from all tournaments.` : ''}
+                confirmText="Delete"
+                confirmColor="red"
+            />
         </main>
     );
 }

@@ -4,6 +4,7 @@ import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
 import { Link } from 'react-router-dom';
 import Modal from '../components/Modal';
+import ConfirmModal from '../components/ConfirmModal';
 
 function TournamentCard({ tournament, onEdit, onDelete }) {
     return (
@@ -51,6 +52,8 @@ export default function Dashboard() {
     const [modalMode, setModalMode] = useState('create'); // 'create' | 'edit'
     const [selectedTournament, setSelectedTournament] = useState(null);
     const [formData, setFormData] = useState({ name: '', game_type: '' });
+    const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+    const [tournamentToDelete, setTournamentToDelete] = useState(null);
     const container = useRef();
     const hasAnimated = useRef(false);
 
@@ -115,10 +118,16 @@ export default function Dashboard() {
         setModalOpen(true);
     };
 
-    const handleDelete = async (tournament) => {
-        if (confirm(`Delete "${tournament.name}"? This will also delete all teams and matches.`)) {
-            await api.deleteTournament(tournament.id);
+    const handleDelete = (tournament) => {
+        setTournamentToDelete(tournament);
+        setDeleteModalOpen(true);
+    };
+
+    const confirmDelete = async () => {
+        if (tournamentToDelete) {
+            await api.deleteTournament(tournamentToDelete.id);
             fetchTournaments();
+            setTournamentToDelete(null);
         }
     };
 
@@ -224,6 +233,16 @@ export default function Dashboard() {
                     </div>
                 </form>
             </Modal>
+
+            <ConfirmModal
+                isOpen={deleteModalOpen}
+                onClose={() => setDeleteModalOpen(false)}
+                onConfirm={confirmDelete}
+                title="Delete Tournament?"
+                message={tournamentToDelete ? `Are you sure you want to delete "${tournamentToDelete.name}"? This will also delete all teams and matches.` : ''}
+                confirmText="Delete"
+                confirmColor="red"
+            />
         </main>
     );
 }
