@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { api } from '../services/api';
 import Modal from '../components/Modal';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -18,6 +18,25 @@ const darkTheme = createTheme({
         },
     },
 });
+
+// Determine match status
+function getMatchStatus(match) {
+    if (match.winner_id) return 'finished';
+    if (!match.scheduled_date) return 'not_scheduled';
+    const now = new Date();
+    const scheduledDate = new Date(match.scheduled_date + (match.scheduled_time ? `T${match.scheduled_time}` : 'T00:00'));
+    if (now >= scheduledDate) return 'live';
+    return 'upcoming';
+}
+
+function getStatusBadge(status) {
+    switch (status) {
+        case 'live': return <span className="px-3 py-1 bg-green-500/20 text-green-400 rounded-full text-xs font-bold animate-pulse">🔴 LIVE</span>;
+        case 'finished': return <span className="px-3 py-1 bg-white/20 text-white/60 rounded-full text-xs font-bold">✓ Finished</span>;
+        case 'upcoming': return <span className="px-3 py-1 bg-blue-500/20 text-blue-400 rounded-full text-xs font-bold">⏳ Upcoming</span>;
+        default: return <span className="px-3 py-1 bg-white/10 text-white/40 rounded-full text-xs font-bold">Not Scheduled</span>;
+    }
+}
 
 export default function TournamentDetails() {
     const { id } = useParams();
@@ -46,9 +65,6 @@ export default function TournamentDetails() {
     const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
     const [selectedMatch, setSelectedMatch] = useState(null);
     const [editData, setEditData] = useState({ team1_id: '', team2_id: '', scheduled_date: '', scheduled_time: '', location: '' });
-
-    const [resultModalOpen, setResultModalOpen] = useState(false);
-    const [resultData, setResultData] = useState({ team1_score: 0, team2_score: 0 });
 
     useEffect(() => {
         let isMounted = true;
@@ -144,27 +160,6 @@ export default function TournamentDetails() {
         }
         await api.updateMatch(selectedMatch.id, editData);
         setScheduleModalOpen(false);
-        triggerRefresh();
-    };
-
-    const openResultModal = (match) => {
-        setSelectedMatch(match);
-        // Parse existing score like "2-1" into separate values
-        const [team1Score, team2Score] = (match.score || '0-0').split('-').map(s => parseInt(s) || 0);
-        setResultData({
-            team1_score: team1Score,
-            team2_score: team2Score
-        });
-        setResultModalOpen(true);
-    };
-
-    const handleResultSubmit = async (e) => {
-        e.preventDefault();
-        if (!selectedMatch) return;
-        // Combine scores into "X-Y" format
-        const score = `${resultData.team1_score}-${resultData.team2_score}`;
-        await api.updateMatch(selectedMatch.id, { score });
-        setResultModalOpen(false);
         triggerRefresh();
     };
 
@@ -267,11 +262,14 @@ export default function TournamentDetails() {
                     </div>
 
                     <div className="space-y-4">
-                        {matches.map(match => (
-                            <div key={match.id} className="p-6 bg-white/5 border border-white/10 rounded-2xl">
+                        {matches.map(match => {
+                            const status = getMatchStatus(match);
+                            return (
+                                <div key={match.id} className={`p-6 bg-white/5 border rounded-2xl ${status === 'live' ? 'border-green-500/50' : 'border-white/10'}`}>
                                 {/* Match header with teams */}
                                 <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-4">
                                     <div className="flex items-center gap-4 text-center md:text-left">
+                                            {getStatusBadge(status)}
                                         <span className={`font-bold text-xl ${match.winner_id === match.team1?.id ? 'text-brand-secondary' : 'text-white'}`}>
                                             {match.team1?.name || 'TBD'}
                                         </span>
@@ -279,15 +277,16 @@ export default function TournamentDetails() {
                                         <span className={`font-bold text-xl ${match.winner_id === match.team2?.id ? 'text-brand-secondary' : 'text-white'}`}>
                                             {match.team2?.name || 'TBD'}
                                         </span>
+                                            {match.score && <span className="text-2xl font-black ml-4">{match.score}</span>}
                                     </div>
 
                                     <div className="flex gap-2">
+                                            <Link to={`/matches/${match.id}`} className="px-4 py-2 bg-brand-primary/20 hover:bg-brand-primary/30 text-brand-primary font-bold rounded-lg text-sm">
+                                                👁 View Match
+                                            </Link>
                                         <button onClick={() => openEditModal(match)} className="px-4 py-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 font-bold rounded-lg text-sm">
                                             ✏️ Edit
-                                        </button>
-                                        <button onClick={() => openResultModal(match)} className="px-4 py-2 bg-green-500/20 hover:bg-green-500/30 text-green-400 font-bold rounded-lg text-sm">
-                                            📊 Score
-                                        </button>
+                                            </button>
                                         <button onClick={() => handleDeleteMatch(match)} className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 font-bold rounded-lg text-sm">
                                             🗑️
                                         </button>
@@ -314,7 +313,8 @@ export default function TournamentDetails() {
                                     </div>
                                 </div>
                             </div>
-                        ))}
+                            )
+                        })}
 
                         {matches.length === 0 && teams.length >= 2 && (
                             <div className="text-center py-16 border border-dashed border-white/20 rounded-2xl">
@@ -599,64 +599,6 @@ export default function TournamentDetails() {
                                 }`}
                         >
                             Save Changes
-                        </button>
-                    </div>
-                </form>
-            </Modal>
-
-            {/* Score Modal */}
-            <Modal isOpen={resultModalOpen} onClose={() => setResultModalOpen(false)} title="Update Score">
-                <form onSubmit={handleResultSubmit} className="space-y-6">
-                    {/* Team 1 Score */}
-                    <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl">
-                        <span className="font-bold text-lg flex-1">{selectedMatch?.team1?.name}</span>
-                        <div className="flex items-center gap-3">
-                            <button
-                                type="button"
-                                onClick={() => setResultData({ ...resultData, team1_score: Math.max(0, resultData.team1_score - 1) })}
-                                className="w-10 h-10 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg font-bold text-xl"
-                            >
-                                −
-                            </button>
-                            <span className="text-3xl font-black w-12 text-center">{resultData.team1_score}</span>
-                            <button
-                                type="button"
-                                onClick={() => setResultData({ ...resultData, team1_score: resultData.team1_score + 1 })}
-                                className="w-10 h-10 bg-green-500/20 hover:bg-green-500/30 text-green-400 rounded-lg font-bold text-xl"
-                            >
-                                +
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Team 2 Score */}
-                    <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl">
-                        <span className="font-bold text-lg flex-1">{selectedMatch?.team2?.name}</span>
-                        <div className="flex items-center gap-3">
-                            <button
-                                type="button"
-                                onClick={() => setResultData({ ...resultData, team2_score: Math.max(0, resultData.team2_score - 1) })}
-                                className="w-10 h-10 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg font-bold text-xl"
-                            >
-                                −
-                            </button>
-                            <span className="text-3xl font-black w-12 text-center">{resultData.team2_score}</span>
-                            <button
-                                type="button"
-                                onClick={() => setResultData({ ...resultData, team2_score: resultData.team2_score + 1 })}
-                                className="w-10 h-10 bg-green-500/20 hover:bg-green-500/30 text-green-400 rounded-lg font-bold text-xl"
-                            >
-                                +
-                            </button>
-                        </div>
-                    </div>
-
-                    <div className="flex gap-4 pt-2">
-                        <button type="button" onClick={() => setResultModalOpen(false)} className="flex-1 py-3 border border-white/20 text-white font-bold rounded-lg hover:bg-white/10">
-                            Cancel
-                        </button>
-                        <button type="submit" className="flex-1 py-3 bg-green-500 text-white font-bold rounded-lg hover:brightness-110">
-                            Save Score
                         </button>
                     </div>
                 </form>

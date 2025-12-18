@@ -137,6 +137,11 @@ export const api = {
     return response.json();
   },
 
+  getMatch: async (matchId) => {
+    const response = await fetch(`${API_BASE}/matches/${matchId}`);
+    return response.json();
+  },
+
   updateMatch: async (matchId, data) => {
     const response = await fetch(`${API_BASE}/matches/${matchId}`, {
       method: 'PUT',
