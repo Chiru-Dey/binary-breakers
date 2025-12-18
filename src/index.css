@@ -23,3 +23,19 @@ body {
     width: 100vw;
     min-height: 100vh;
 }
+
+/* Global squircle buttons - mobile only */
+@media (max-width: 767px) {
+
+  button,
+  a[class*="bg-"],
+  input[type="submit"],
+  input[type="button"] {
+    border-radius: 1rem !important;
+  }
+}
+
+/* Exception for fully rounded pills */
+.rounded-full {
+  border-radius: 9999px !important;
+}
