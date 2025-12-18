@@ -17,7 +17,7 @@ export default function Navbar() {
   }, { scope: container });
 
   return (
-    <nav ref={container} className="fixed top-0 left-0 w-full p-6 z-50 flex justify-between items-center mix-blend-difference text-white">
+    <nav ref={container} className="fixed top-0 left-0 w-full px-6 py-2 z-50 flex justify-between items-center bg-black/30 backdrop-blur-xl border-b border-white/10 text-white">
       <Link to="/" className="text-2xl font-bold tracking-tighter uppercase font-display">
         Eventa<span className="text-brand-primary">Sports</span>
       </Link>
