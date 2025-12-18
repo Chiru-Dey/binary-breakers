@@ -37,6 +37,13 @@ def generate_matches(tournament_id):
     db.session.commit()
     return jsonify([m.to_dict() for m in matches]), 201
 
+@bp.route('/matches/<int:id>', methods=['GET'])
+def get_match(id):
+    match = db.session.get(Match, id)
+    if not match:
+        return jsonify({'error': 'Match not found'}), 404
+    return jsonify(match.to_dict())
+
 @bp.route('/matches/<int:id>', methods=['PUT'])
 def update_match(id):
     match = db.session.get(Match, id)
@@ -48,6 +55,23 @@ def update_match(id):
         match.score = data['score']
     if 'winner_id' in data:
         match.winner_id = data['winner_id']
+    # Scheduling fields
+    if 'scheduled_date' in data:
+        match.scheduled_date = data['scheduled_date']
+    if 'scheduled_time' in data:
+        match.scheduled_time = data['scheduled_time']
+    if 'location' in data:
+        match.location = data['location']
         
     db.session.commit()
     return jsonify(match.to_dict())
+
+@bp.route('/matches/<int:id>', methods=['DELETE'])
+def delete_match(id):
+    match = db.session.get(Match, id)
+    if not match:
+        return jsonify({'error': 'Match not found'}), 404
+    
+    db.session.delete(match)
+    db.session.commit()
+    return jsonify({'message': 'Match deleted successfully'})

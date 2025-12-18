@@ -1,6 +1,7 @@
 const API_BASE = 'http://127.0.0.1:5000/api';
 
 export const api = {
+  // Tournaments
   getTournaments: async () => {
     const response = await fetch(`${API_BASE}/tournaments`);
     if (!response.ok) throw new Error('Failed to fetch tournaments');
@@ -22,6 +23,24 @@ export const api = {
     if (!response.ok) throw new Error('Failed to fetch tournament');
     return response.json();
   },
+
+  updateTournament: async (id, data) => {
+    const response = await fetch(`${API_BASE}/tournaments/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (!response.ok) throw new Error('Failed to update tournament');
+    return response.json();
+  },
+
+  deleteTournament: async (id) => {
+    const response = await fetch(`${API_BASE}/tournaments/${id}`, {
+      method: 'DELETE'
+    });
+    if (!response.ok) throw new Error('Failed to delete tournament');
+    return response.json();
+  },
   
   // Teams
   getTeams: async (tournamentId) => {
@@ -37,7 +56,23 @@ export const api = {
       });
       return response.json();
   },
-  
+
+  updateTeam: async (id, data) => {
+    const response = await fetch(`${API_BASE}/teams/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    return response.json();
+  },
+
+  deleteTeam: async (id) => {
+    const response = await fetch(`${API_BASE}/teams/${id}`, {
+      method: 'DELETE'
+    });
+    return response.json();
+  },
+
   // Matches
   getMatches: async (tournamentId) => {
       const response = await fetch(`${API_BASE}/tournaments/${tournamentId}/matches`);
@@ -51,11 +86,18 @@ export const api = {
       return response.json();
   },
 
-  updateMatch: async (matchId, score, winnerId) => {
+  updateMatch: async (matchId, data) => {
     const response = await fetch(`${API_BASE}/matches/${matchId}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ score, winner_id: winnerId })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+    return response.json();
+  },
+
+  deleteMatch: async (matchId) => {
+    const response = await fetch(`${API_BASE}/matches/${matchId}`, {
+      method: 'DELETE'
     });
     return response.json();
   }

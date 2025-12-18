@@ -58,8 +58,13 @@ class Match(db.Model):
     team1_id: Mapped[int] = mapped_column(ForeignKey('teams.id'), nullable=False)
     team2_id: Mapped[int] = mapped_column(ForeignKey('teams.id'), nullable=False)
     winner_id: Mapped[Optional[int]] = mapped_column(ForeignKey('teams.id'), nullable=True)
-    score: Mapped[Optional[str]] = mapped_column(String(50), nullable=True) # e.g., "2-1"
+    score: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     round_number: Mapped[int] = mapped_column(Integer, default=1)
+    
+    # Scheduling fields
+    scheduled_date: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    scheduled_time: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    location: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
 
     # Relationships
     tournament: Mapped["Tournament"] = relationship(back_populates="matches")
@@ -75,5 +80,8 @@ class Match(db.Model):
             "team2": self.team2.to_dict(),
             "winner_id": self.winner_id,
             "score": self.score,
-            "round_number": self.round_number
+            "round_number": self.round_number,
+            "scheduled_date": self.scheduled_date,
+            "scheduled_time": self.scheduled_time,
+            "location": self.location
         }

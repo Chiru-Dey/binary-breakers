@@ -28,7 +28,7 @@ export default function About() {
                 <div className="space-y-8 text-lg text-white/70">
                     <p className="about-content">
                         <strong className="text-white">EventaSports</strong> is a professional tournament management platform 
-                        designed for eSports organizers, gaming communities, and competitive players.
+                        designed for tournamnet organizers, gaming communities, and competitive players.
                     </p>
                     
                     <p className="about-content">

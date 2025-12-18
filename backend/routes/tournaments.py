@@ -28,3 +28,32 @@ def get_tournament(id):
     if not tournament:
         return jsonify({'error': 'Tournament not found'}), 404
     return jsonify(tournament.to_dict())
+
+@bp.route('/<int:id>', methods=['PUT'])
+def update_tournament(id):
+    tournament = db.session.get(Tournament, id)
+    if not tournament:
+        return jsonify({'error': 'Tournament not found'}), 404
+    
+    data = request.get_json()
+    if 'name' in data:
+        tournament.name = data['name']
+    if 'game_type' in data:
+        tournament.game_type = data['game_type']
+    if 'status' in data:
+        tournament.status = TournamentStatus(data['status'])
+    if 'date' in data:
+        tournament.date = datetime.fromisoformat(data['date'].replace('Z', '+00:00'))
+    
+    db.session.commit()
+    return jsonify(tournament.to_dict())
+
+@bp.route('/<int:id>', methods=['DELETE'])
+def delete_tournament(id):
+    tournament = db.session.get(Tournament, id)
+    if not tournament:
+        return jsonify({'error': 'Tournament not found'}), 404
+    
+    db.session.delete(tournament)
+    db.session.commit()
+    return jsonify({'message': 'Tournament deleted successfully'})
