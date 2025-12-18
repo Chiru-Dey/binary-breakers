@@ -99,20 +99,23 @@ export default function Matches() {
         if (loading || hasAnimated.current) return;
         hasAnimated.current = true;
 
-        gsap.from('.page-title', {
-            clipPath: 'inset(0 100% 0 0)',
-            duration: 0.8,
-            ease: 'power4.out',
+        // Title letters fade in one by one
+        gsap.from('.page-letter', {
+            opacity: 0,
+            y: 20,
+            duration: 0.1,
+            stagger: 0.05,
+            ease: 'power2.out',
             delay: 0.2
         });
 
-        gsap.from('.page-subtitle', {
-            opacity: 0, y: 20, duration: 0.5, ease: 'power3.out', delay: 0.4
+        gsap.from('.page-subtitle-word', {
+            opacity: 0, y: 15, duration: 0.15, stagger: 0.05, ease: 'power3.out', delay: 0.6
         });
 
         if (matches.length > 0) {
             gsap.from('.match-card', {
-                y: 50, opacity: 0, duration: 0.6, stagger: 0.1, ease: 'power3.out', delay: 0.5
+                y: 50, opacity: 0, duration: 0.6, stagger: 0.1, ease: 'power3.out', delay: 0.8
             });
         }
     }, { scope: container, dependencies: [loading] });
@@ -134,13 +137,17 @@ export default function Matches() {
     }
 
     return (
-        <main ref={container} className="pt-32 px-6 min-h-screen relative z-10">
-            <header className="max-w-7xl mx-auto mb-16">
-                <h1 className="page-title text-6xl font-black font-display uppercase tracking-tighter mb-4">
-                    Matches
+        <main ref={container} className="pt-32 px-4 md:px-6 min-h-screen relative z-10">
+            <header className="max-w-7xl mx-auto mb-10 md:mb-16">
+                <h1 className="page-title text-4xl md:text-6xl font-black font-display uppercase tracking-tighter mb-2 md:mb-4">
+                    {'Matches'.split('').map((letter, i) => (
+                        <span key={i} className="page-letter inline-block">{letter}</span>
+                    ))}
                 </h1>
-                <p className="page-subtitle text-white/60 text-xl">
-                    All tournament matches. Click to view details or update scores.
+                <p className="page-subtitle text-white/60 text-base md:text-xl">
+                    {'All tournament matches. Click to view details or update scores.'.split(' ').map((word, i) => (
+                        <span key={i} className="page-subtitle-word inline-block mr-1">{word}</span>
+                    ))}
                 </p>
             </header>
 

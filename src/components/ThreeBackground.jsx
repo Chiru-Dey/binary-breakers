@@ -4,10 +4,17 @@ import { useRef, useState } from 'react';
 
 function Particle({ position, color, speed }) {
   const ref = useRef();
+  const initialPosition = useRef(position);
 
-  useFrame((state, delta) => {
-    ref.current.rotation.x += delta * speed * 0.5;
-    ref.current.rotation.y += delta * speed;
+  useFrame((state) => {
+    const time = state.clock.elapsedTime;
+    // Rotate
+    ref.current.rotation.x += 0.02 * speed;
+    ref.current.rotation.y += 0.03 * speed;
+    // Float around using sine waves - faster drift
+    ref.current.position.x = initialPosition.current[0] + Math.sin(time * speed * 1.2) * 0.8;
+    ref.current.position.y = initialPosition.current[1] + Math.cos(time * speed * 0.8) * 0.8;
+    ref.current.position.z = initialPosition.current[2] + Math.sin(time * speed * 1.0) * 0.5;
   });
 
   return (

@@ -84,19 +84,22 @@ export default function Teams() {
         if (loading || hasAnimated.current) return;
         hasAnimated.current = true;
 
-        gsap.from('.page-title', {
-            clipPath: 'inset(0 100% 0 0)',
-            duration: 0.8,
-            ease: 'power4.out',
+        // Title letters fade in one by one
+        gsap.from('.page-letter', {
+            opacity: 0,
+            y: 20,
+            duration: 0.1,
+            stagger: 0.05,
+            ease: 'power2.out',
             delay: 0.2
         });
 
-        gsap.from('.page-subtitle', {
-            opacity: 0, y: 20, duration: 0.5, ease: 'power3.out', delay: 0.4
+        gsap.from('.page-subtitle-word', {
+            opacity: 0, y: 15, duration: 0.15, stagger: 0.05, ease: 'power3.out', delay: 0.5
         });
 
         gsap.from('.create-btn', {
-            opacity: 0, scale: 0.9, duration: 0.5, ease: 'power3.out', delay: 0.5
+            opacity: 0, scale: 0.9, duration: 0.5, ease: 'power3.out', delay: 0.7
         });
 
         if (teams.length > 0) {
@@ -106,7 +109,7 @@ export default function Teams() {
                 duration: 0.6,
                 stagger: 0.1,
                 ease: 'power3.out',
-                delay: 0.5
+                delay: 0.9
             });
         }
     }, { scope: container, dependencies: [loading] });
@@ -158,14 +161,18 @@ export default function Teams() {
     }
 
     return (
-        <main ref={container} className="pt-32 px-6 min-h-screen relative z-10">
-            <header className="max-w-7xl mx-auto mb-16 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <main ref={container} className="pt-32 px-4 md:px-6 min-h-screen relative z-10">
+            <header className="max-w-7xl mx-auto mb-10 md:mb-16 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                    <h1 className="page-title text-6xl font-black font-display uppercase tracking-tighter mb-2">
-                        Teams
+                    <h1 className="page-title text-4xl md:text-6xl font-black font-display uppercase tracking-tighter mb-2">
+                        {'Teams'.split('').map((letter, i) => (
+                            <span key={i} className="page-letter inline-block">{letter}</span>
+                        ))}
                     </h1>
-                    <p className="page-subtitle text-white/60 text-xl">
-                        Manage your teams. Add them to tournaments from tournament details.
+                    <p className="page-subtitle text-white/60 text-sm md:text-xl">
+                        {'Manage your teams. Add them to tournaments from tournament details.'.split(' ').map((word, i) => (
+                            <span key={i} className="page-subtitle-word inline-block mr-1">{word}</span>
+                        ))}
                     </p>
                 </div>
                 <button
