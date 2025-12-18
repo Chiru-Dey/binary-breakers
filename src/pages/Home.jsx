@@ -68,24 +68,18 @@ export default function Home() {
         
         {/* Description - Line by Line Fade In */}
         <div className="mt-10 max-w-2xl text-xl md:text-2xl text-white/60 font-light space-y-2">
-          <p className="hero-desc">The ultimate platform for organizing next-gen eSports tournaments.</p>
+          <p className="hero-desc">The ultimate platform for organizing next-gen tournamnet tournaments.</p>
           <p className="hero-desc">Plan tournaments, manage teams, generate schedules,</p>
           <p className="hero-desc">and track match results digitally.</p>
         </div>
         
-        {/* CTA Buttons - Fade In */}
-        <div className="mt-14 flex flex-row gap-6 items-center justify-center flex-wrap">
+        {/* CTA Buttons - Fade In - stay on same line */}
+        <div className="mt-14 flex flex-row gap-4 md:gap-6 items-center justify-center">
           <Link 
             to="/tournaments" 
-            className="hero-cta px-10 py-5 bg-brand-primary text-white font-bold text-lg hover:scale-105 transition-transform"
+            className="hero-cta px-6 md:px-10 py-4 md:py-5 bg-brand-primary text-white font-bold text-base md:text-lg hover:scale-105 transition-transform whitespace-nowrap"
           >
             Get Started
-          </Link>
-          <Link 
-            to="/tournaments" 
-            className="hero-cta px-10 py-5 border-2 border-white/30 hover:bg-white/10 font-semibold text-lg transition-colors"
-          >
-            View Brackets
           </Link>
         </div>
       </section>
