@@ -7,7 +7,7 @@ import Modal from '../components/Modal';
 
 function TournamentCard({ tournament, onEdit, onDelete }) {
     return (
-        <div className="tournament-card block relative group">
+        <Link to={`/tournaments/${tournament.id}`} className="tournament-card block relative group">
             <div className="absolute inset-0 bg-brand-primary/20 blur-xl opacity-0 group-hover:opacity-50 transition-opacity duration-500 rounded-2xl" />
             <div className="relative p-8 bg-white/5 border border-white/10 backdrop-blur-md rounded-2xl hover:border-brand-primary/50 transition-colors h-full flex flex-col justify-between overflow-hidden">
                 <div className="absolute top-0 right-0 w-24 h-24 bg-brand-secondary/10 rounded-full blur-2xl -mr-10 -mt-10" />
@@ -21,13 +21,11 @@ function TournamentCard({ tournament, onEdit, onDelete }) {
                             {tournament.status}
                         </span>
                         <div className="flex gap-2">
-                            <button onClick={(e) => { e.stopPropagation(); onEdit(tournament); }} className="text-xs px-2 py-1 bg-white/10 hover:bg-white/20 rounded">✏️</button>
-                            <button onClick={(e) => { e.stopPropagation(); onDelete(tournament); }} className="text-xs px-2 py-1 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded">🗑️</button>
+                            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); onEdit(tournament); }} className="text-xs px-2 py-1 bg-white/10 hover:bg-white/20 rounded">✏️</button>
+                            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); onDelete(tournament); }} className="text-xs px-2 py-1 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded">🗑️</button>
                         </div>
                     </div>
-                    <Link to={`/tournaments/${tournament.id}`}>
-                        <h3 className="text-2xl font-bold font-display tracking-tight mb-2 hover:text-brand-primary transition-colors">{tournament.name}</h3>
-                    </Link>
+                    <h3 className="text-2xl font-bold font-display tracking-tight mb-2">{tournament.name}</h3>
                     <p className="text-white/60 text-sm">{tournament.game_type}</p>
                 </div>
 
@@ -41,11 +39,8 @@ function TournamentCard({ tournament, onEdit, onDelete }) {
                     </div>
                 </div>
 
-                <Link to={`/tournaments/${tournament.id}`} className="mt-4 block text-center py-2 bg-brand-primary/20 hover:bg-brand-primary/40 text-brand-primary font-bold rounded-lg transition-colors">
-                    Manage →
-                </Link>
             </div>
-        </div>
+        </Link>
     );
 }
 

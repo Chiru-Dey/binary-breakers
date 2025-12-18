@@ -170,6 +170,13 @@ export default function TournamentDetails() {
         }
     };
 
+    const handleFinishTournament = async () => {
+        if (confirm('Are you sure you want to mark this tournament as Completed?')) {
+            await api.updateTournament(id, { status: 'Completed' });
+            triggerRefresh();
+        }
+    };
+
     if (loading) {
         return (
             <div className="pt-32 min-h-screen flex items-center justify-center relative z-10">
@@ -192,8 +199,23 @@ export default function TournamentDetails() {
     return (
         <main className="pt-32 px-6 min-h-screen max-w-7xl mx-auto relative z-10">
             <div className="mb-12 border-b border-white/10 pb-8">
-                <span className="text-brand-primary font-bold tracking-widest uppercase text-sm mb-2 block">{tournament.game_type}</span>
-                <h1 className="text-5xl md:text-7xl font-black font-display uppercase tracking-tighter mb-4">{tournament.name}</h1>
+                <div className="flex justify-between items-start mb-4">
+                    <div>
+                        <span className="text-brand-primary font-bold tracking-widest uppercase text-sm mb-2 block">{tournament.game_type}</span>
+                        <h1 className="text-5xl md:text-7xl font-black font-display uppercase tracking-tighter">{tournament.name}</h1>
+                    </div>
+                    {tournament.status !== 'Completed' && (
+                        <button
+                            onClick={handleFinishTournament}
+                            className="px-6 py-3 bg-green-500 text-white font-bold rounded-xl hover:brightness-110 transition-all"
+                        >
+                            ✓ Finish Tournament
+                        </button>
+                    )}
+                    {tournament.status === 'Completed' && (
+                        <span className="px-4 py-2 bg-blue-500/20 text-blue-400 rounded-lg font-bold">Tournament Completed</span>
+                    )}
+                </div>
                 <div className="flex gap-4">
                     <button
                         onClick={() => setActiveTab('teams')}
