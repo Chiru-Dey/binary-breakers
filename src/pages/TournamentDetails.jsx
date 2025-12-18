@@ -1,44 +1,52 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { api } from '../services/api';
 import Modal from '../components/Modal';
 
 export default function TournamentDetails() {
     const { id } = useParams();
+    const [searchParams] = useSearchParams();
     const [tournament, setTournament] = useState(null);
     const [teams, setTeams] = useState([]);
+    const [availableTeams, setAvailableTeams] = useState([]);
     const [matches, setMatches] = useState([]);
-    const [activeTab, setActiveTab] = useState('teams');
+    const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'teams');
     const [loading, setLoading] = useState(true);
     const [refreshKey, setRefreshKey] = useState(0);
 
     // Modal states
     const [teamModalOpen, setTeamModalOpen] = useState(false);
-    const [teamModalMode, setTeamModalMode] = useState('create');
-    const [selectedTeam, setSelectedTeam] = useState(null);
-    const [teamName, setTeamName] = useState('');
+    const [selectedTeamId, setSelectedTeamId] = useState('');
+
+    const [matchModalOpen, setMatchModalOpen] = useState(false);
+    const [matchFormData, setMatchFormData] = useState({ team1_id: '', team2_id: '' });
 
     const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
     const [selectedMatch, setSelectedMatch] = useState(null);
     const [scheduleData, setScheduleData] = useState({ scheduled_date: '', scheduled_time: '', location: '' });
 
     const [resultModalOpen, setResultModalOpen] = useState(false);
-    const [resultData, setResultData] = useState({ score: '', winner_id: null });
+    const [resultData, setResultData] = useState({ team1_score: 0, team2_score: 0 });
 
     useEffect(() => {
         let isMounted = true;
 
         (async () => {
             try {
-                const [tData, teamData, matchData] = await Promise.all([
+                const [tData, teamData, matchData, allTeamsData] = await Promise.all([
                     api.getTournament(id),
                     api.getTeams(id),
-                    api.getMatches(id)
+                    api.getMatches(id),
+                    api.getAllTeams()
                 ]);
                 if (isMounted) {
                     setTournament(tData);
                     setTeams(teamData);
                     setMatches(matchData);
+                    // Filter teams not assigned to any tournament or assigned to different tournament
+                    const available = allTeamsData.filter(t => !t.tournament_id || t.tournament_id === parseInt(id));
+                    const inThisTournament = teamData.map(t => t.id);
+                    setAvailableTeams(available.filter(t => !inThisTournament.includes(t.id)));
                     setLoading(false);
                 }
             } catch (e) {
@@ -54,42 +62,42 @@ export default function TournamentDetails() {
 
     // Team handlers
     const openAddTeamModal = () => {
-        setTeamModalMode('create');
-        setTeamName('');
-        setTeamModalOpen(true);
-    };
-
-    const openEditTeamModal = (team) => {
-        setTeamModalMode('edit');
-        setSelectedTeam(team);
-        setTeamName(team.name);
+        setSelectedTeamId('');
         setTeamModalOpen(true);
     };
 
     const handleTeamSubmit = async (e) => {
         e.preventDefault();
-        if (!teamName.trim()) return;
+        if (!selectedTeamId) return;
 
-        if (teamModalMode === 'create') {
-            await api.addTeam(id, teamName);
-        } else {
-            await api.updateTeam(selectedTeam.id, { name: teamName });
-        }
-
+        // Add team to this tournament
+        await api.addTeamToTournament(id, parseInt(selectedTeamId));
         setTeamModalOpen(false);
         triggerRefresh();
     };
 
-    const handleDeleteTeam = async (team) => {
-        if (confirm(`Delete team "${team.name}"?`)) {
-            await api.deleteTeam(team.id);
+    const handleRemoveTeam = async (team) => {
+        if (confirm(`Remove team "${team.name}" from this tournament?`)) {
+            await api.removeTeamFromTournament(id, team.id);
             triggerRefresh();
         }
     };
 
     // Match handlers
-    const handleGenerate = async () => {
-        await api.generateMatches(id);
+    const openMatchModal = () => {
+        setMatchFormData({ team1_id: '', team2_id: '' });
+        setMatchModalOpen(true);
+    };
+
+    const handleCreateMatch = async (e) => {
+        e.preventDefault();
+        if (!matchFormData.team1_id || !matchFormData.team2_id) return;
+        if (matchFormData.team1_id === matchFormData.team2_id) {
+            alert('Please select different teams');
+            return;
+        }
+        await api.createMatch(id, matchFormData.team1_id, matchFormData.team2_id);
+        setMatchModalOpen(false);
         triggerRefresh();
     };
 
@@ -113,9 +121,11 @@ export default function TournamentDetails() {
 
     const openResultModal = (match) => {
         setSelectedMatch(match);
+        // Parse existing score like "2-1" into separate values
+        const [team1Score, team2Score] = (match.score || '0-0').split('-').map(s => parseInt(s) || 0);
         setResultData({
-            score: match.score || '',
-            winner_id: match.winner_id || null
+            team1_score: team1Score,
+            team2_score: team2Score
         });
         setResultModalOpen(true);
     };
@@ -123,7 +133,9 @@ export default function TournamentDetails() {
     const handleResultSubmit = async (e) => {
         e.preventDefault();
         if (!selectedMatch) return;
-        await api.updateMatch(selectedMatch.id, resultData);
+        // Combine scores into "X-Y" format
+        const score = `${resultData.team1_score}-${resultData.team2_score}`;
+        await api.updateMatch(selectedMatch.id, { score });
         setResultModalOpen(false);
         triggerRefresh();
     };
@@ -192,10 +204,9 @@ export default function TournamentDetails() {
                                     <span className="font-bold text-lg">{team.name}</span>
                                     <span className="text-white/40 text-sm ml-2">#{team.id}</span>
                                 </div>
-                                <div className="flex gap-2">
-                                    <button onClick={() => openEditTeamModal(team)} className="px-3 py-1 bg-white/10 hover:bg-white/20 rounded text-sm">✏️</button>
-                                    <button onClick={() => handleDeleteTeam(team)} className="px-3 py-1 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded text-sm">🗑️</button>
-                                </div>
+                                <button onClick={() => handleRemoveTeam(team)} className="px-3 py-1 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded text-sm" title="Remove from tournament">
+                                    ✕ Remove
+                                </button>
                             </div>
                         ))}
                         {teams.length === 0 && (
@@ -214,19 +225,17 @@ export default function TournamentDetails() {
             {activeTab === 'bracket' && (
                 <div>
                     <div className="flex justify-between items-center mb-8">
-                        <h2 className="text-2xl font-bold">Match Schedule</h2>
-                        {matches.length === 0 && (
-                            <button
-                                onClick={handleGenerate}
-                                disabled={teams.length < 2}
-                                className={`px-6 py-3 font-bold rounded-lg transition-all ${teams.length >= 2
-                                    ? 'bg-brand-secondary text-black hover:scale-105'
-                                    : 'bg-white/20 text-white/50 cursor-not-allowed'
-                                    }`}
-                            >
-                                🎯 Generate Bracket {teams.length < 2 && `(Need ${2 - teams.length} more team${2 - teams.length > 1 ? 's' : ''})`}
-                            </button>
-                        )}
+                        <h2 className="text-2xl font-bold">Matches ({matches.length})</h2>
+                        <button
+                            onClick={openMatchModal}
+                            disabled={teams.length < 2}
+                            className={`px-6 py-3 font-bold rounded-lg transition-all ${teams.length >= 2
+                                ? 'bg-brand-primary text-white hover:scale-105'
+                                : 'bg-white/20 text-white/50 cursor-not-allowed'
+                                }`}
+                        >
+                            + Create Match {teams.length < 2 && `(Need ${2 - teams.length} more team${2 - teams.length > 1 ? 's' : ''})`}
+                        </button>
                     </div>
 
                     <div className="space-y-4">
@@ -249,7 +258,7 @@ export default function TournamentDetails() {
                                             📅 Schedule
                                         </button>
                                         <button onClick={() => openResultModal(match)} className="px-4 py-2 bg-green-500/20 hover:bg-green-500/30 text-green-400 font-bold rounded-lg text-sm">
-                                            📊 Result
+                                            📊 Score
                                         </button>
                                         <button onClick={() => handleDeleteMatch(match)} className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 font-bold rounded-lg text-sm">
                                             🗑️
@@ -299,27 +308,86 @@ export default function TournamentDetails() {
                 </div>
             )}
 
-            {/* Add/Edit Team Modal */}
-            <Modal isOpen={teamModalOpen} onClose={() => setTeamModalOpen(false)} title={teamModalMode === 'create' ? 'Add Team' : 'Edit Team'}>
+            {/* Add Team to Tournament Modal */}
+            <Modal isOpen={teamModalOpen} onClose={() => setTeamModalOpen(false)} title="Add Team to Tournament">
                 <form onSubmit={handleTeamSubmit} className="space-y-4">
                     <div>
-                        <label className="block text-sm font-bold text-white/80 mb-2 uppercase tracking-wider">Team Name</label>
-                        <input
-                            type="text"
-                            placeholder="Enter team name"
-                            value={teamName}
-                            onChange={(e) => setTeamName(e.target.value)}
-                            className="w-full bg-black/50 border border-white/20 p-4 rounded-lg focus:outline-none focus:border-brand-primary text-white"
-                            autoComplete="off"
-                            required
-                        />
+                        <label className="block text-sm font-bold text-white/80 mb-2 uppercase tracking-wider">Select Team</label>
+                        {availableTeams.length > 0 ? (
+                            <select
+                                value={selectedTeamId}
+                                onChange={(e) => setSelectedTeamId(e.target.value)}
+                                className="w-full bg-black/50 border border-white/20 p-4 rounded-lg focus:outline-none focus:border-brand-primary text-white"
+                                required
+                            >
+                                <option value="">Choose a team...</option>
+                                {availableTeams.map(t => (
+                                    <option key={t.id} value={t.id}>{t.name}</option>
+                                ))}
+                            </select>
+                        ) : (
+                            <div className="p-4 bg-white/5 rounded-lg text-white/60 text-center">
+                                <p className="mb-2">No available teams.</p>
+                                <p className="text-sm">Create teams first on the Teams page.</p>
+                            </div>
+                        )}
                     </div>
                     <div className="flex gap-4 pt-4">
                         <button type="button" onClick={() => setTeamModalOpen(false)} className="flex-1 py-3 border border-white/20 text-white font-bold rounded-lg hover:bg-white/10">
                             Cancel
                         </button>
-                        <button type="submit" className="flex-1 py-3 bg-brand-primary text-white font-bold rounded-lg hover:brightness-110">
-                            {teamModalMode === 'create' ? 'Add Team' : 'Save'}
+                        <button type="submit" disabled={!selectedTeamId} className={`flex-1 py-3 font-bold rounded-lg transition-all ${selectedTeamId ? 'bg-brand-primary text-white hover:brightness-110' : 'bg-white/20 text-white/50 cursor-not-allowed'}`}>
+                            Add to Tournament
+                        </button>
+                    </div>
+                </form>
+            </Modal>
+
+            {/* Create Match Modal */}
+            <Modal isOpen={matchModalOpen} onClose={() => setMatchModalOpen(false)} title="Create Match">
+                <form onSubmit={handleCreateMatch} className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-bold text-white/80 mb-2 uppercase tracking-wider">Team 1</label>
+                        <select
+                            value={matchFormData.team1_id}
+                            onChange={(e) => setMatchFormData({ ...matchFormData, team1_id: e.target.value })}
+                            className="w-full bg-black/50 border border-white/20 p-4 rounded-lg focus:outline-none focus:border-brand-primary text-white"
+                            required
+                        >
+                            <option value="">Select team...</option>
+                            {teams.map(t => (
+                                <option key={t.id} value={t.id}>{t.name}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div className="text-center text-2xl font-black text-white/40">VS</div>
+                    <div>
+                        <label className="block text-sm font-bold text-white/80 mb-2 uppercase tracking-wider">Team 2</label>
+                        <select
+                            value={matchFormData.team2_id}
+                            onChange={(e) => setMatchFormData({ ...matchFormData, team2_id: e.target.value })}
+                            className="w-full bg-black/50 border border-white/20 p-4 rounded-lg focus:outline-none focus:border-brand-primary text-white"
+                            required
+                        >
+                            <option value="">Select team...</option>
+                            {teams.map(t => (
+                                <option key={t.id} value={t.id}>{t.name}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div className="flex gap-4 pt-4">
+                        <button type="button" onClick={() => setMatchModalOpen(false)} className="flex-1 py-3 border border-white/20 text-white font-bold rounded-lg hover:bg-white/10">
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            disabled={!matchFormData.team1_id || !matchFormData.team2_id || matchFormData.team1_id === matchFormData.team2_id}
+                            className={`flex-1 py-3 font-bold rounded-lg transition-all ${matchFormData.team1_id && matchFormData.team2_id && matchFormData.team1_id !== matchFormData.team2_id
+                                    ? 'bg-brand-primary text-white hover:brightness-110'
+                                    : 'bg-white/20 text-white/50 cursor-not-allowed'
+                                }`}
+                        >
+                            Create Match
                         </button>
                     </div>
                 </form>
@@ -372,55 +440,59 @@ export default function TournamentDetails() {
                 </form>
             </Modal>
 
-            {/* Update Result Modal */}
-            <Modal isOpen={resultModalOpen} onClose={() => setResultModalOpen(false)} title="Update Match Result">
-                <form onSubmit={handleResultSubmit} className="space-y-4">
-                    <div className="text-center mb-4 p-4 bg-white/5 rounded-lg">
-                        <span className="font-bold">{selectedMatch?.team1?.name}</span>
-                        <span className="text-white/40 mx-2">vs</span>
-                        <span className="font-bold">{selectedMatch?.team2?.name}</span>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-bold text-white/80 mb-2 uppercase tracking-wider">Score</label>
-                        <input
-                            type="text"
-                            placeholder="e.g. 2-1, 16-14, 3-0"
-                            value={resultData.score}
-                            onChange={(e) => setResultData({ ...resultData, score: e.target.value })}
-                            className="w-full bg-black/50 border border-white/20 p-4 rounded-lg focus:outline-none focus:border-brand-primary text-white"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-bold text-white/80 mb-2 uppercase tracking-wider">Winner</label>
-                        <div className="grid grid-cols-2 gap-4">
+            {/* Score Modal */}
+            <Modal isOpen={resultModalOpen} onClose={() => setResultModalOpen(false)} title="Update Score">
+                <form onSubmit={handleResultSubmit} className="space-y-6">
+                    {/* Team 1 Score */}
+                    <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl">
+                        <span className="font-bold text-lg flex-1">{selectedMatch?.team1?.name}</span>
+                        <div className="flex items-center gap-3">
                             <button
                                 type="button"
-                                onClick={() => setResultData({ ...resultData, winner_id: selectedMatch?.team1?.id })}
-                                className={`p-4 rounded-lg font-bold transition-all ${resultData.winner_id === selectedMatch?.team1?.id
-                                    ? 'bg-brand-secondary text-black'
-                                    : 'bg-white/10 hover:bg-white/20'
-                                    }`}
+                                onClick={() => setResultData({ ...resultData, team1_score: Math.max(0, resultData.team1_score - 1) })}
+                                className="w-10 h-10 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg font-bold text-xl"
                             >
-                                {selectedMatch?.team1?.name}
+                                −
                             </button>
+                            <span className="text-3xl font-black w-12 text-center">{resultData.team1_score}</span>
                             <button
                                 type="button"
-                                onClick={() => setResultData({ ...resultData, winner_id: selectedMatch?.team2?.id })}
-                                className={`p-4 rounded-lg font-bold transition-all ${resultData.winner_id === selectedMatch?.team2?.id
-                                    ? 'bg-brand-secondary text-black'
-                                    : 'bg-white/10 hover:bg-white/20'
-                                    }`}
+                                onClick={() => setResultData({ ...resultData, team1_score: resultData.team1_score + 1 })}
+                                className="w-10 h-10 bg-green-500/20 hover:bg-green-500/30 text-green-400 rounded-lg font-bold text-xl"
                             >
-                                {selectedMatch?.team2?.name}
+                                +
                             </button>
                         </div>
                     </div>
-                    <div className="flex gap-4 pt-4">
+
+                    {/* Team 2 Score */}
+                    <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl">
+                        <span className="font-bold text-lg flex-1">{selectedMatch?.team2?.name}</span>
+                        <div className="flex items-center gap-3">
+                            <button
+                                type="button"
+                                onClick={() => setResultData({ ...resultData, team2_score: Math.max(0, resultData.team2_score - 1) })}
+                                className="w-10 h-10 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg font-bold text-xl"
+                            >
+                                −
+                            </button>
+                            <span className="text-3xl font-black w-12 text-center">{resultData.team2_score}</span>
+                            <button
+                                type="button"
+                                onClick={() => setResultData({ ...resultData, team2_score: resultData.team2_score + 1 })}
+                                className="w-10 h-10 bg-green-500/20 hover:bg-green-500/30 text-green-400 rounded-lg font-bold text-xl"
+                            >
+                                +
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="flex gap-4 pt-2">
                         <button type="button" onClick={() => setResultModalOpen(false)} className="flex-1 py-3 border border-white/20 text-white font-bold rounded-lg hover:bg-white/10">
                             Cancel
                         </button>
                         <button type="submit" className="flex-1 py-3 bg-green-500 text-white font-bold rounded-lg hover:brightness-110">
-                            Save Result
+                            Save Score
                         </button>
                     </div>
                 </form>

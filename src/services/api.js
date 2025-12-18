@@ -81,6 +81,24 @@ export const api = {
       return response.json();
   },
 
+  // Add existing team to tournament
+  addTeamToTournament: async (tournamentId, teamId) => {
+    const response = await fetch(`${API_BASE}/tournaments/${tournamentId}/teams`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ team_id: teamId })
+    });
+    return response.json();
+  },
+
+  // Remove team from tournament
+  removeTeamFromTournament: async (tournamentId, teamId) => {
+    const response = await fetch(`${API_BASE}/tournaments/${tournamentId}/teams/${teamId}`, {
+      method: 'DELETE'
+    });
+    return response.json();
+  },
+
   updateTeam: async (id, data) => {
     const response = await fetch(`${API_BASE}/teams/${id}`, {
       method: 'PUT',
@@ -108,6 +126,15 @@ export const api = {
           method: 'POST'
       });
       return response.json();
+  },
+
+  createMatch: async (tournamentId, team1Id, team2Id) => {
+    const response = await fetch(`${API_BASE}/tournaments/${tournamentId}/matches`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ team1_id: team1Id, team2_id: team2Id })
+    });
+    return response.json();
   },
 
   updateMatch: async (matchId, data) => {

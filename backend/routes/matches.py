@@ -23,25 +23,50 @@ def get_matches(tournament_id):
     matches = db.session.execute(db.select(Match).filter_by(tournament_id=tournament_id).order_by(Match.round_number)).scalars().all()
     return jsonify([m.to_dict() for m in matches])
 
+@bp.route('/tournaments/<int:tournament_id>/matches', methods=['POST'])
+def create_match(tournament_id):
+    data = request.get_json()
+    team1_id = data.get('team1_id')
+    team2_id = data.get('team2_id')
+    
+    if not team1_id or not team2_id:
+        return jsonify({'error': 'Both team1_id and team2_id are required'}), 400
+    
+    if team1_id == team2_id:
+        return jsonify({'error': 'Teams must be different'}), 400
+    
+    match = Match(
+        tournament_id=tournament_id,
+        team1_id=team1_id,
+        team2_id=team2_id,
+        round_number=1
+    )
+    db.session.add(match)
+    db.session.commit()
+    return jsonify(match.to_dict()), 201
+
 @bp.route('/tournaments/<int:tournament_id>/generate-matches', methods=['POST'])
 def generate_matches(tournament_id):
-    # Simple single elimination pairings for round 1
-    teams = db.session.execute(db.select(Team).filter_by(tournament_id=tournament_id)).scalars().all()
+    # Get tournament and its teams
+    tournament = db.session.get(Tournament, tournament_id)
+    if not tournament:
+        return jsonify({'error': 'Tournament not found'}), 404
+    
+    teams = list(tournament.teams)
     if len(teams) < 2:
         return jsonify({'error': 'Not enough teams to generate matches'}), 400
     
     # Shuffle for random pairing
-    team_list = list(teams)
-    random.shuffle(team_list)
+    random.shuffle(teams)
     
     matches = []
     # Create pairs
-    for i in range(0, len(team_list), 2):
-        if i + 1 < len(team_list):
+    for i in range(0, len(teams), 2):
+        if i + 1 < len(teams):
             match = Match(
                 tournament_id=tournament_id,
-                team1_id=team_list[i].id,
-                team2_id=team_list[i+1].id,
+                team1_id=teams[i].id,
+                team2_id=teams[i+1].id,
                 round_number=1
             )
             db.session.add(match)
