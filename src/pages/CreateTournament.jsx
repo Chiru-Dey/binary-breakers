@@ -77,7 +77,7 @@ export default function CreateTournament() {
                         </label>
                         <input
                             type="text"
-                            placeholder="e.g. Valorant, League of Legends, CS2"
+                            placeholder="e.g. Cricket, Football, Badminton"
                             value={formData.game_type}
                             onChange={(e) => setFormData({...formData, game_type: e.target.value})}
                             className="w-full bg-black/50 border border-white/20 p-4 rounded-lg focus:outline-none focus:border-brand-primary text-white text-lg"
