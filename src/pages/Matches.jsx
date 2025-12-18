@@ -108,7 +108,22 @@ export default function Matches() {
     };
 
     useEffect(() => {
-        fetchMatches();
+        let isMounted = true;
+
+        (async () => {
+            try {
+                const data = await api.getAllMatches();
+                if (isMounted) {
+                    setMatches(data);
+                    setLoading(false);
+                }
+            } catch (err) {
+                console.error(err);
+                if (isMounted) setLoading(false);
+            }
+        })();
+
+        return () => { isMounted = false; };
     }, []);
 
     useGSAP(() => {
