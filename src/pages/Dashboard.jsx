@@ -145,13 +145,13 @@ export default function Dashboard() {
     }
 
     return (
-        <main ref={container} className="pt-32 px-6 min-h-screen relative z-10">
-            <header className="max-w-7xl mx-auto mb-16 flex justify-between items-end">
+        <main ref={container} className="pt-32 px-4 md:px-6 min-h-screen relative z-10">
+            <header className="max-w-7xl mx-auto mb-10 md:mb-16 flex flex-col md:flex-row md:justify-between md:items-end gap-4">
                 <div>
-                    <h1 className="page-title text-6xl font-black font-display uppercase tracking-tighter mb-4">
+                    <h1 className="page-title text-4xl md:text-6xl font-black font-display uppercase tracking-tighter mb-2 md:mb-4">
                         Tournaments
                     </h1>
-                    <p className="page-subtitle text-white/60">Select a tournament to manage or view results.</p>
+                    <p className="page-subtitle text-white/60 text-sm md:text-base">Select a tournament to manage or view results.</p>
                 </div>
                 <button 
                     onClick={openCreateModal}

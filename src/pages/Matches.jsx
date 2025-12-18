@@ -134,12 +134,12 @@ export default function Matches() {
     }
 
     return (
-        <main ref={container} className="pt-32 px-6 min-h-screen relative z-10">
-            <header className="max-w-7xl mx-auto mb-16">
-                <h1 className="page-title text-6xl font-black font-display uppercase tracking-tighter mb-4">
+        <main ref={container} className="pt-32 px-4 md:px-6 min-h-screen relative z-10">
+            <header className="max-w-7xl mx-auto mb-10 md:mb-16">
+                <h1 className="page-title text-4xl md:text-6xl font-black font-display uppercase tracking-tighter mb-2 md:mb-4">
                     Matches
                 </h1>
-                <p className="page-subtitle text-white/60 text-xl">
+                <p className="page-subtitle text-white/60 text-base md:text-xl">
                     All tournament matches. Click to view details or update scores.
                 </p>
             </header>
