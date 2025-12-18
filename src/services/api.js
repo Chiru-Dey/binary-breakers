@@ -49,5 +49,14 @@ export const api = {
           method: 'POST'
       });
       return response.json();
+  },
+
+  updateMatch: async (matchId, score, winnerId) => {
+    const response = await fetch(`${API_BASE}/matches/${matchId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ score, winner_id: winnerId })
+    });
+    return response.json();
   }
 };
