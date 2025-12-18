@@ -2,6 +2,22 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { api } from '../services/api';
 import Modal from '../components/Modal';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { TimePicker } from '@mui/x-date-pickers/TimePicker';
+import { ThemeProvider, createTheme } from '@mui/material/styles';
+import dayjs from 'dayjs';
+
+// Dark theme for MUI pickers
+const darkTheme = createTheme({
+    palette: {
+        mode: 'dark',
+        primary: {
+            main: '#8B5CF6',
+        },
+    },
+});
 
 export default function TournamentDetails() {
     const { id } = useParams();
@@ -19,11 +35,17 @@ export default function TournamentDetails() {
     const [selectedTeamId, setSelectedTeamId] = useState('');
 
     const [matchModalOpen, setMatchModalOpen] = useState(false);
-    const [matchFormData, setMatchFormData] = useState({ team1_id: '', team2_id: '' });
+    const [matchFormData, setMatchFormData] = useState({
+        team1_id: '',
+        team2_id: '',
+        scheduled_date: '',
+        scheduled_time: '',
+        location: ''
+    });
 
     const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
     const [selectedMatch, setSelectedMatch] = useState(null);
-    const [scheduleData, setScheduleData] = useState({ scheduled_date: '', scheduled_time: '', location: '' });
+    const [editData, setEditData] = useState({ team1_id: '', team2_id: '', scheduled_date: '', scheduled_time: '', location: '' });
 
     const [resultModalOpen, setResultModalOpen] = useState(false);
     const [resultData, setResultData] = useState({ team1_score: 0, team2_score: 0 });
@@ -85,7 +107,7 @@ export default function TournamentDetails() {
 
     // Match handlers
     const openMatchModal = () => {
-        setMatchFormData({ team1_id: '', team2_id: '' });
+        setMatchFormData({ team1_id: '', team2_id: '', scheduled_date: '', scheduled_time: '', location: '' });
         setMatchModalOpen(true);
     };
 
@@ -96,14 +118,16 @@ export default function TournamentDetails() {
             alert('Please select different teams');
             return;
         }
-        await api.createMatch(id, matchFormData.team1_id, matchFormData.team2_id);
+        await api.createMatch(id, matchFormData);
         setMatchModalOpen(false);
         triggerRefresh();
     };
 
-    const openScheduleModal = (match) => {
+    const openEditModal = (match) => {
         setSelectedMatch(match);
-        setScheduleData({
+        setEditData({
+            team1_id: String(match.team1?.id || ''),
+            team2_id: String(match.team2?.id || ''),
             scheduled_date: match.scheduled_date || '',
             scheduled_time: match.scheduled_time || '',
             location: match.location || ''
@@ -111,10 +135,14 @@ export default function TournamentDetails() {
         setScheduleModalOpen(true);
     };
 
-    const handleScheduleSubmit = async (e) => {
+    const handleEditSubmit = async (e) => {
         e.preventDefault();
         if (!selectedMatch) return;
-        await api.updateMatch(selectedMatch.id, scheduleData);
+        if (editData.team1_id === editData.team2_id) {
+            alert('Please select different teams');
+            return;
+        }
+        await api.updateMatch(selectedMatch.id, editData);
         setScheduleModalOpen(false);
         triggerRefresh();
     };
@@ -254,8 +282,8 @@ export default function TournamentDetails() {
                                     </div>
 
                                     <div className="flex gap-2">
-                                        <button onClick={() => openScheduleModal(match)} className="px-4 py-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 font-bold rounded-lg text-sm">
-                                            📅 Schedule
+                                        <button onClick={() => openEditModal(match)} className="px-4 py-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 font-bold rounded-lg text-sm">
+                                            ✏️ Edit
                                         </button>
                                         <button onClick={() => openResultModal(match)} className="px-4 py-2 bg-green-500/20 hover:bg-green-500/30 text-green-400 font-bold rounded-lg text-sm">
                                             📊 Score
@@ -375,6 +403,72 @@ export default function TournamentDetails() {
                             ))}
                         </select>
                     </div>
+
+                    {/* Scheduling Section */}
+                    <div className="border-t border-white/10 pt-4 mt-4">
+                        <h4 className="text-sm font-bold text-white/60 mb-4 uppercase tracking-wider">Schedule (Optional)</h4>
+                        <ThemeProvider theme={darkTheme}>
+                            <LocalizationProvider dateAdapter={AdapterDayjs}>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-xs text-white/60 mb-2">Date</label>
+                                        <DatePicker
+                                            value={matchFormData.scheduled_date ? dayjs(matchFormData.scheduled_date) : null}
+                                            onChange={(newValue) => setMatchFormData({
+                                                ...matchFormData,
+                                                scheduled_date: newValue ? newValue.format('YYYY-MM-DD') : ''
+                                            })}
+                                            slotProps={{
+                                                textField: {
+                                                    fullWidth: true,
+                                                    size: 'small',
+                                                    sx: {
+                                                        '& .MuiOutlinedInput-root': {
+                                                            backgroundColor: 'rgba(0,0,0,0.5)',
+                                                            borderRadius: '0.5rem',
+                                                        },
+                                                    }
+                                                }
+                                            }}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs text-white/60 mb-2">Time</label>
+                                        <TimePicker
+                                            value={matchFormData.scheduled_time ? dayjs(matchFormData.scheduled_time, 'HH:mm') : null}
+                                            onChange={(newValue) => setMatchFormData({
+                                                ...matchFormData,
+                                                scheduled_time: newValue ? newValue.format('HH:mm') : ''
+                                            })}
+                                            slotProps={{
+                                                textField: {
+                                                    fullWidth: true,
+                                                    size: 'small',
+                                                    sx: {
+                                                        '& .MuiOutlinedInput-root': {
+                                                            backgroundColor: 'rgba(0,0,0,0.5)',
+                                                            borderRadius: '0.5rem',
+                                                        },
+                                                    }
+                                                }
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+                            </LocalizationProvider>
+                        </ThemeProvider>
+                        <div className="mt-4">
+                            <label className="block text-xs text-white/60 mb-2">Location / Venue</label>
+                            <input
+                                type="text"
+                                placeholder="e.g. Main Stage, Court A, Online"
+                                value={matchFormData.location}
+                                onChange={(e) => setMatchFormData({ ...matchFormData, location: e.target.value })}
+                                className="w-full bg-black/50 border border-white/20 p-3 rounded-lg focus:outline-none focus:border-brand-primary text-white"
+                            />
+                        </div>
+                    </div>
+
                     <div className="flex gap-4 pt-4">
                         <button type="button" onClick={() => setMatchModalOpen(false)} className="flex-1 py-3 border border-white/20 text-white font-bold rounded-lg hover:bg-white/10">
                             Cancel
@@ -393,48 +487,118 @@ export default function TournamentDetails() {
                 </form>
             </Modal>
 
-            {/* Schedule Match Modal */}
-            <Modal isOpen={scheduleModalOpen} onClose={() => setScheduleModalOpen(false)} title="Schedule Match">
-                <form onSubmit={handleScheduleSubmit} className="space-y-4">
-                    <div className="text-center mb-4 p-4 bg-white/5 rounded-lg">
-                        <span className="font-bold">{selectedMatch?.team1?.name}</span>
-                        <span className="text-white/40 mx-2">vs</span>
-                        <span className="font-bold">{selectedMatch?.team2?.name}</span>
-                    </div>
+            {/* Edit Match Modal */}
+            <Modal isOpen={scheduleModalOpen} onClose={() => setScheduleModalOpen(false)} title="Edit Match">
+                <form onSubmit={handleEditSubmit} className="space-y-4">
+                    {/* Team Selection */}
                     <div>
-                        <label className="block text-sm font-bold text-white/80 mb-2 uppercase tracking-wider">Date</label>
-                        <input
-                            type="date"
-                            value={scheduleData.scheduled_date}
-                            onChange={(e) => setScheduleData({ ...scheduleData, scheduled_date: e.target.value })}
+                        <label className="block text-sm font-bold text-white/80 mb-2 uppercase tracking-wider">Team 1</label>
+                        <select
+                            value={editData.team1_id}
+                            onChange={(e) => setEditData({ ...editData, team1_id: e.target.value })}
                             className="w-full bg-black/50 border border-white/20 p-4 rounded-lg focus:outline-none focus:border-brand-primary text-white"
-                        />
+                            required
+                        >
+                            <option value="">Select team...</option>
+                            {teams.map(t => (
+                                <option key={t.id} value={t.id}>{t.name}</option>
+                            ))}
+                        </select>
                     </div>
+                    <div className="text-center text-2xl font-black text-white/40">VS</div>
                     <div>
-                        <label className="block text-sm font-bold text-white/80 mb-2 uppercase tracking-wider">Time</label>
-                        <input
-                            type="time"
-                            value={scheduleData.scheduled_time}
-                            onChange={(e) => setScheduleData({ ...scheduleData, scheduled_time: e.target.value })}
+                        <label className="block text-sm font-bold text-white/80 mb-2 uppercase tracking-wider">Team 2</label>
+                        <select
+                            value={editData.team2_id}
+                            onChange={(e) => setEditData({ ...editData, team2_id: e.target.value })}
                             className="w-full bg-black/50 border border-white/20 p-4 rounded-lg focus:outline-none focus:border-brand-primary text-white"
-                        />
+                            required
+                        >
+                            <option value="">Select team...</option>
+                            {teams.map(t => (
+                                <option key={t.id} value={t.id}>{t.name}</option>
+                            ))}
+                        </select>
                     </div>
-                    <div>
-                        <label className="block text-sm font-bold text-white/80 mb-2 uppercase tracking-wider">Location / Venue</label>
-                        <input
-                            type="text"
-                            placeholder="e.g. Main Stage, Online, Arena A"
-                            value={scheduleData.location}
-                            onChange={(e) => setScheduleData({ ...scheduleData, location: e.target.value })}
-                            className="w-full bg-black/50 border border-white/20 p-4 rounded-lg focus:outline-none focus:border-brand-primary text-white"
-                        />
+
+                    {/* Scheduling Section */}
+                    <div className="border-t border-white/10 pt-4 mt-4">
+                        <h4 className="text-sm font-bold text-white/60 mb-4 uppercase tracking-wider">Schedule</h4>
+                        <ThemeProvider theme={darkTheme}>
+                            <LocalizationProvider dateAdapter={AdapterDayjs}>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-xs text-white/60 mb-2">Date</label>
+                                        <DatePicker
+                                            value={editData.scheduled_date ? dayjs(editData.scheduled_date) : null}
+                                            onChange={(newValue) => setEditData({
+                                                ...editData,
+                                                scheduled_date: newValue ? newValue.format('YYYY-MM-DD') : ''
+                                            })}
+                                            slotProps={{
+                                                textField: {
+                                                    fullWidth: true,
+                                                    size: 'small',
+                                                    sx: {
+                                                        '& .MuiOutlinedInput-root': {
+                                                            backgroundColor: 'rgba(0,0,0,0.5)',
+                                                            borderRadius: '0.5rem',
+                                                        },
+                                                    }
+                                                }
+                                            }}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs text-white/60 mb-2">Time</label>
+                                        <TimePicker
+                                            value={editData.scheduled_time ? dayjs(editData.scheduled_time, 'HH:mm') : null}
+                                            onChange={(newValue) => setEditData({
+                                                ...editData,
+                                                scheduled_time: newValue ? newValue.format('HH:mm') : ''
+                                            })}
+                                            slotProps={{
+                                                textField: {
+                                                    fullWidth: true,
+                                                    size: 'small',
+                                                    sx: {
+                                                        '& .MuiOutlinedInput-root': {
+                                                            backgroundColor: 'rgba(0,0,0,0.5)',
+                                                            borderRadius: '0.5rem',
+                                                        },
+                                                    }
+                                                }
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+                            </LocalizationProvider>
+                        </ThemeProvider>
+                        <div className="mt-4">
+                            <label className="block text-xs text-white/60 mb-2">Location / Venue</label>
+                            <input
+                                type="text"
+                                placeholder="e.g. Main Stage, Online, Arena A"
+                                value={editData.location}
+                                onChange={(e) => setEditData({ ...editData, location: e.target.value })}
+                                className="w-full bg-black/50 border border-white/20 p-3 rounded-lg focus:outline-none focus:border-brand-primary text-white"
+                            />
+                        </div>
                     </div>
+
                     <div className="flex gap-4 pt-4">
                         <button type="button" onClick={() => setScheduleModalOpen(false)} className="flex-1 py-3 border border-white/20 text-white font-bold rounded-lg hover:bg-white/10">
                             Cancel
                         </button>
-                        <button type="submit" className="flex-1 py-3 bg-blue-500 text-white font-bold rounded-lg hover:brightness-110">
-                            Save Schedule
+                        <button
+                            type="submit"
+                            disabled={editData.team1_id === editData.team2_id}
+                            className={`flex-1 py-3 font-bold rounded-lg transition-all ${editData.team1_id !== editData.team2_id
+                                    ? 'bg-brand-primary text-white hover:brightness-110'
+                                    : 'bg-white/20 text-white/50 cursor-not-allowed'
+                                }`}
+                        >
+                            Save Changes
                         </button>
                     </div>
                 </form>

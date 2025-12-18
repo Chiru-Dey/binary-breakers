@@ -39,7 +39,10 @@ def create_match(tournament_id):
         tournament_id=tournament_id,
         team1_id=team1_id,
         team2_id=team2_id,
-        round_number=1
+        round_number=1,
+        scheduled_date=data.get('scheduled_date'),
+        scheduled_time=data.get('scheduled_time'),
+        location=data.get('location')
     )
     db.session.add(match)
     db.session.commit()

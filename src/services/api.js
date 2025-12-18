@@ -128,11 +128,11 @@ export const api = {
       return response.json();
   },
 
-  createMatch: async (tournamentId, team1Id, team2Id) => {
+  createMatch: async (tournamentId, data) => {
     const response = await fetch(`${API_BASE}/tournaments/${tournamentId}/matches`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ team1_id: team1Id, team2_id: team2Id })
+      body: JSON.stringify(data)
     });
     return response.json();
   },
