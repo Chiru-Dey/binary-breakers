@@ -1,6 +1,30 @@
 const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5000/api';
 
 export const api = {
+  // All Teams (global)
+  getAllTeams: async () => {
+    const response = await fetch(`${API_BASE}/teams`);
+    if (!response.ok) throw new Error('Failed to fetch teams');
+    return response.json();
+  },
+
+  createTeam: async (data) => {
+    const response = await fetch(`${API_BASE}/teams`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (!response.ok) throw new Error('Failed to create team');
+    return response.json();
+  },
+
+  // All Matches (for schedule)
+  getAllMatches: async () => {
+    const response = await fetch(`${API_BASE}/matches`);
+    if (!response.ok) throw new Error('Failed to fetch matches');
+    return response.json();
+  },
+
   // Tournaments
   getTournaments: async () => {
     const response = await fetch(`${API_BASE}/tournaments`);
@@ -57,6 +81,24 @@ export const api = {
       return response.json();
   },
 
+  // Add existing team to tournament
+  addTeamToTournament: async (tournamentId, teamId) => {
+    const response = await fetch(`${API_BASE}/tournaments/${tournamentId}/teams`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ team_id: teamId })
+    });
+    return response.json();
+  },
+
+  // Remove team from tournament
+  removeTeamFromTournament: async (tournamentId, teamId) => {
+    const response = await fetch(`${API_BASE}/tournaments/${tournamentId}/teams/${teamId}`, {
+      method: 'DELETE'
+    });
+    return response.json();
+  },
+
   updateTeam: async (id, data) => {
     const response = await fetch(`${API_BASE}/teams/${id}`, {
       method: 'PUT',
@@ -84,6 +126,20 @@ export const api = {
           method: 'POST'
       });
       return response.json();
+  },
+
+  createMatch: async (tournamentId, data) => {
+    const response = await fetch(`${API_BASE}/tournaments/${tournamentId}/matches`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    return response.json();
+  },
+
+  getMatch: async (matchId) => {
+    const response = await fetch(`${API_BASE}/matches/${matchId}`);
+    return response.json();
   },
 
   updateMatch: async (matchId, data) => {

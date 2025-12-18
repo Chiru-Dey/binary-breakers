@@ -1,44 +1,90 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { api } from '../services/api';
 import Modal from '../components/Modal';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { TimePicker } from '@mui/x-date-pickers/TimePicker';
+import { ThemeProvider, createTheme } from '@mui/material/styles';
+import dayjs from 'dayjs';
+
+// Dark theme for MUI pickers
+const darkTheme = createTheme({
+    palette: {
+        mode: 'dark',
+        primary: {
+            main: '#8B5CF6',
+        },
+    },
+});
+
+// Determine match status
+function getMatchStatus(match) {
+    if (match.winner_id) return 'finished';
+    if (!match.scheduled_date) return 'not_scheduled';
+    const now = new Date();
+    const scheduledDate = new Date(match.scheduled_date + (match.scheduled_time ? `T${match.scheduled_time}` : 'T00:00'));
+    if (now >= scheduledDate) return 'live';
+    return 'upcoming';
+}
+
+function getStatusBadge(status) {
+    switch (status) {
+        case 'live': return <span className="px-3 py-1 bg-green-500/20 text-green-400 rounded-full text-xs font-bold animate-pulse">🔴 LIVE</span>;
+        case 'finished': return <span className="px-3 py-1 bg-white/20 text-white/60 rounded-full text-xs font-bold">✓ Finished</span>;
+        case 'upcoming': return <span className="px-3 py-1 bg-blue-500/20 text-blue-400 rounded-full text-xs font-bold">⏳ Upcoming</span>;
+        default: return <span className="px-3 py-1 bg-white/10 text-white/40 rounded-full text-xs font-bold">Not Scheduled</span>;
+    }
+}
 
 export default function TournamentDetails() {
     const { id } = useParams();
+    const [searchParams] = useSearchParams();
     const [tournament, setTournament] = useState(null);
     const [teams, setTeams] = useState([]);
+    const [availableTeams, setAvailableTeams] = useState([]);
     const [matches, setMatches] = useState([]);
-    const [activeTab, setActiveTab] = useState('teams');
+    const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'teams');
     const [loading, setLoading] = useState(true);
     const [refreshKey, setRefreshKey] = useState(0);
 
     // Modal states
     const [teamModalOpen, setTeamModalOpen] = useState(false);
-    const [teamModalMode, setTeamModalMode] = useState('create');
-    const [selectedTeam, setSelectedTeam] = useState(null);
-    const [teamName, setTeamName] = useState('');
+    const [selectedTeamId, setSelectedTeamId] = useState('');
+
+    const [matchModalOpen, setMatchModalOpen] = useState(false);
+    const [matchFormData, setMatchFormData] = useState({
+        team1_id: '',
+        team2_id: '',
+        scheduled_date: '',
+        scheduled_time: '',
+        location: ''
+    });
 
     const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
     const [selectedMatch, setSelectedMatch] = useState(null);
-    const [scheduleData, setScheduleData] = useState({ scheduled_date: '', scheduled_time: '', location: '' });
-
-    const [resultModalOpen, setResultModalOpen] = useState(false);
-    const [resultData, setResultData] = useState({ score: '', winner_id: null });
+    const [editData, setEditData] = useState({ team1_id: '', team2_id: '', scheduled_date: '', scheduled_time: '', location: '' });
 
     useEffect(() => {
         let isMounted = true;
 
         (async () => {
             try {
-                const [tData, teamData, matchData] = await Promise.all([
+                const [tData, teamData, matchData, allTeamsData] = await Promise.all([
                     api.getTournament(id),
                     api.getTeams(id),
-                    api.getMatches(id)
+                    api.getMatches(id),
+                    api.getAllTeams()
                 ]);
                 if (isMounted) {
                     setTournament(tData);
                     setTeams(teamData);
                     setMatches(matchData);
+                    // Filter teams not assigned to any tournament or assigned to different tournament
+                    const available = allTeamsData.filter(t => !t.tournament_id || t.tournament_id === parseInt(id));
+                    const inThisTournament = teamData.map(t => t.id);
+                    setAvailableTeams(available.filter(t => !inThisTournament.includes(t.id)));
                     setLoading(false);
                 }
             } catch (e) {
@@ -54,48 +100,50 @@ export default function TournamentDetails() {
 
     // Team handlers
     const openAddTeamModal = () => {
-        setTeamModalMode('create');
-        setTeamName('');
-        setTeamModalOpen(true);
-    };
-
-    const openEditTeamModal = (team) => {
-        setTeamModalMode('edit');
-        setSelectedTeam(team);
-        setTeamName(team.name);
+        setSelectedTeamId('');
         setTeamModalOpen(true);
     };
 
     const handleTeamSubmit = async (e) => {
         e.preventDefault();
-        if (!teamName.trim()) return;
+        if (!selectedTeamId) return;
 
-        if (teamModalMode === 'create') {
-            await api.addTeam(id, teamName);
-        } else {
-            await api.updateTeam(selectedTeam.id, { name: teamName });
-        }
-
+        // Add team to this tournament
+        await api.addTeamToTournament(id, parseInt(selectedTeamId));
         setTeamModalOpen(false);
         triggerRefresh();
     };
 
-    const handleDeleteTeam = async (team) => {
-        if (confirm(`Delete team "${team.name}"?`)) {
-            await api.deleteTeam(team.id);
+    const handleRemoveTeam = async (team) => {
+        if (confirm(`Remove team "${team.name}" from this tournament?`)) {
+            await api.removeTeamFromTournament(id, team.id);
             triggerRefresh();
         }
     };
 
     // Match handlers
-    const handleGenerate = async () => {
-        await api.generateMatches(id);
+    const openMatchModal = () => {
+        setMatchFormData({ team1_id: '', team2_id: '', scheduled_date: '', scheduled_time: '', location: '' });
+        setMatchModalOpen(true);
+    };
+
+    const handleCreateMatch = async (e) => {
+        e.preventDefault();
+        if (!matchFormData.team1_id || !matchFormData.team2_id) return;
+        if (matchFormData.team1_id === matchFormData.team2_id) {
+            alert('Please select different teams');
+            return;
+        }
+        await api.createMatch(id, matchFormData);
+        setMatchModalOpen(false);
         triggerRefresh();
     };
 
-    const openScheduleModal = (match) => {
+    const openEditModal = (match) => {
         setSelectedMatch(match);
-        setScheduleData({
+        setEditData({
+            team1_id: String(match.team1?.id || ''),
+            team2_id: String(match.team2?.id || ''),
             scheduled_date: match.scheduled_date || '',
             scheduled_time: match.scheduled_time || '',
             location: match.location || ''
@@ -103,34 +151,28 @@ export default function TournamentDetails() {
         setScheduleModalOpen(true);
     };
 
-    const handleScheduleSubmit = async (e) => {
+    const handleEditSubmit = async (e) => {
         e.preventDefault();
         if (!selectedMatch) return;
-        await api.updateMatch(selectedMatch.id, scheduleData);
+        if (editData.team1_id === editData.team2_id) {
+            alert('Please select different teams');
+            return;
+        }
+        await api.updateMatch(selectedMatch.id, editData);
         setScheduleModalOpen(false);
-        triggerRefresh();
-    };
-
-    const openResultModal = (match) => {
-        setSelectedMatch(match);
-        setResultData({
-            score: match.score || '',
-            winner_id: match.winner_id || null
-        });
-        setResultModalOpen(true);
-    };
-
-    const handleResultSubmit = async (e) => {
-        e.preventDefault();
-        if (!selectedMatch) return;
-        await api.updateMatch(selectedMatch.id, resultData);
-        setResultModalOpen(false);
         triggerRefresh();
     };
 
     const handleDeleteMatch = async (match) => {
         if (confirm(`Delete this match?`)) {
             await api.deleteMatch(match.id);
+            triggerRefresh();
+        }
+    };
+
+    const handleFinishTournament = async () => {
+        if (confirm('Are you sure you want to mark this tournament as Completed?')) {
+            await api.updateTournament(id, { status: 'Completed' });
             triggerRefresh();
         }
     };
@@ -157,8 +199,23 @@ export default function TournamentDetails() {
     return (
         <main className="pt-32 px-6 min-h-screen max-w-7xl mx-auto relative z-10">
             <div className="mb-12 border-b border-white/10 pb-8">
-                <span className="text-brand-primary font-bold tracking-widest uppercase text-sm mb-2 block">{tournament.game_type}</span>
-                <h1 className="text-5xl md:text-7xl font-black font-display uppercase tracking-tighter mb-4">{tournament.name}</h1>
+                <div className="flex justify-between items-start mb-4">
+                    <div>
+                        <span className="text-brand-primary font-bold tracking-widest uppercase text-sm mb-2 block">{tournament.game_type}</span>
+                        <h1 className="text-5xl md:text-7xl font-black font-display uppercase tracking-tighter">{tournament.name}</h1>
+                    </div>
+                    {tournament.status !== 'Completed' && (
+                        <button
+                            onClick={handleFinishTournament}
+                            className="px-6 py-3 bg-green-500 text-white font-bold rounded-xl hover:brightness-110 transition-all"
+                        >
+                            ✓ Finish Tournament
+                        </button>
+                    )}
+                    {tournament.status === 'Completed' && (
+                        <span className="px-4 py-2 bg-blue-500/20 text-blue-400 rounded-lg font-bold">Tournament Completed</span>
+                    )}
+                </div>
                 <div className="flex gap-4">
                     <button
                         onClick={() => setActiveTab('teams')}
@@ -192,10 +249,9 @@ export default function TournamentDetails() {
                                     <span className="font-bold text-lg">{team.name}</span>
                                     <span className="text-white/40 text-sm ml-2">#{team.id}</span>
                                 </div>
-                                <div className="flex gap-2">
-                                    <button onClick={() => openEditTeamModal(team)} className="px-3 py-1 bg-white/10 hover:bg-white/20 rounded text-sm">✏️</button>
-                                    <button onClick={() => handleDeleteTeam(team)} className="px-3 py-1 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded text-sm">🗑️</button>
-                                </div>
+                                <button onClick={() => handleRemoveTeam(team)} className="px-3 py-1 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded text-sm" title="Remove from tournament">
+                                    ✕ Remove
+                                </button>
                             </div>
                         ))}
                         {teams.length === 0 && (
@@ -214,27 +270,28 @@ export default function TournamentDetails() {
             {activeTab === 'bracket' && (
                 <div>
                     <div className="flex justify-between items-center mb-8">
-                        <h2 className="text-2xl font-bold">Match Schedule</h2>
-                        {matches.length === 0 && (
-                            <button
-                                onClick={handleGenerate}
-                                disabled={teams.length < 2}
-                                className={`px-6 py-3 font-bold rounded-lg transition-all ${teams.length >= 2
-                                    ? 'bg-brand-secondary text-black hover:scale-105'
-                                    : 'bg-white/20 text-white/50 cursor-not-allowed'
-                                    }`}
-                            >
-                                🎯 Generate Bracket {teams.length < 2 && `(Need ${2 - teams.length} more team${2 - teams.length > 1 ? 's' : ''})`}
-                            </button>
-                        )}
+                        <h2 className="text-2xl font-bold">Matches ({matches.length})</h2>
+                        <button
+                            onClick={openMatchModal}
+                            disabled={teams.length < 2}
+                            className={`px-6 py-3 font-bold rounded-lg transition-all ${teams.length >= 2
+                                ? 'bg-brand-primary text-white hover:scale-105'
+                                : 'bg-white/20 text-white/50 cursor-not-allowed'
+                                }`}
+                        >
+                            + Create Match {teams.length < 2 && `(Need ${2 - teams.length} more team${2 - teams.length > 1 ? 's' : ''})`}
+                        </button>
                     </div>
 
                     <div className="space-y-4">
-                        {matches.map(match => (
-                            <div key={match.id} className="p-6 bg-white/5 border border-white/10 rounded-2xl">
+                        {matches.map(match => {
+                            const status = getMatchStatus(match);
+                            return (
+                                <div key={match.id} className={`p-6 bg-white/5 border rounded-2xl ${status === 'live' ? 'border-green-500/50' : 'border-white/10'}`}>
                                 {/* Match header with teams */}
                                 <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-4">
                                     <div className="flex items-center gap-4 text-center md:text-left">
+                                            {getStatusBadge(status)}
                                         <span className={`font-bold text-xl ${match.winner_id === match.team1?.id ? 'text-brand-secondary' : 'text-white'}`}>
                                             {match.team1?.name || 'TBD'}
                                         </span>
@@ -242,15 +299,16 @@ export default function TournamentDetails() {
                                         <span className={`font-bold text-xl ${match.winner_id === match.team2?.id ? 'text-brand-secondary' : 'text-white'}`}>
                                             {match.team2?.name || 'TBD'}
                                         </span>
+                                            {match.score && <span className="text-2xl font-black ml-4">{match.score}</span>}
                                     </div>
 
                                     <div className="flex gap-2">
-                                        <button onClick={() => openScheduleModal(match)} className="px-4 py-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 font-bold rounded-lg text-sm">
-                                            📅 Schedule
-                                        </button>
-                                        <button onClick={() => openResultModal(match)} className="px-4 py-2 bg-green-500/20 hover:bg-green-500/30 text-green-400 font-bold rounded-lg text-sm">
-                                            📊 Result
-                                        </button>
+                                            <Link to={`/matches/${match.id}`} className="px-4 py-2 bg-brand-primary/20 hover:bg-brand-primary/30 text-brand-primary font-bold rounded-lg text-sm">
+                                                👁 View Match
+                                            </Link>
+                                        <button onClick={() => openEditModal(match)} className="px-4 py-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 font-bold rounded-lg text-sm">
+                                            ✏️ Edit
+                                            </button>
                                         <button onClick={() => handleDeleteMatch(match)} className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 font-bold rounded-lg text-sm">
                                             🗑️
                                         </button>
@@ -277,7 +335,8 @@ export default function TournamentDetails() {
                                     </div>
                                 </div>
                             </div>
-                        ))}
+                            )
+                        })}
 
                         {matches.length === 0 && teams.length >= 2 && (
                             <div className="text-center py-16 border border-dashed border-white/20 rounded-2xl">
@@ -299,128 +358,269 @@ export default function TournamentDetails() {
                 </div>
             )}
 
-            {/* Add/Edit Team Modal */}
-            <Modal isOpen={teamModalOpen} onClose={() => setTeamModalOpen(false)} title={teamModalMode === 'create' ? 'Add Team' : 'Edit Team'}>
+            {/* Add Team to Tournament Modal */}
+            <Modal isOpen={teamModalOpen} onClose={() => setTeamModalOpen(false)} title="Add Team to Tournament">
                 <form onSubmit={handleTeamSubmit} className="space-y-4">
                     <div>
-                        <label className="block text-sm font-bold text-white/80 mb-2 uppercase tracking-wider">Team Name</label>
-                        <input
-                            type="text"
-                            placeholder="Enter team name"
-                            value={teamName}
-                            onChange={(e) => setTeamName(e.target.value)}
-                            className="w-full bg-black/50 border border-white/20 p-4 rounded-lg focus:outline-none focus:border-brand-primary text-white"
-                            autoComplete="off"
-                            required
-                        />
+                        <label className="block text-sm font-bold text-white/80 mb-2 uppercase tracking-wider">Select Team</label>
+                        {availableTeams.length > 0 ? (
+                            <select
+                                value={selectedTeamId}
+                                onChange={(e) => setSelectedTeamId(e.target.value)}
+                                className="w-full bg-black/50 border border-white/20 p-4 rounded-lg focus:outline-none focus:border-brand-primary text-white"
+                                required
+                            >
+                                <option value="">Choose a team...</option>
+                                {availableTeams.map(t => (
+                                    <option key={t.id} value={t.id}>{t.name}</option>
+                                ))}
+                            </select>
+                        ) : (
+                            <div className="p-4 bg-white/5 rounded-lg text-white/60 text-center">
+                                <p className="mb-2">No available teams.</p>
+                                <p className="text-sm">Create teams first on the Teams page.</p>
+                            </div>
+                        )}
                     </div>
                     <div className="flex gap-4 pt-4">
                         <button type="button" onClick={() => setTeamModalOpen(false)} className="flex-1 py-3 border border-white/20 text-white font-bold rounded-lg hover:bg-white/10">
                             Cancel
                         </button>
-                        <button type="submit" className="flex-1 py-3 bg-brand-primary text-white font-bold rounded-lg hover:brightness-110">
-                            {teamModalMode === 'create' ? 'Add Team' : 'Save'}
+                        <button type="submit" disabled={!selectedTeamId} className={`flex-1 py-3 font-bold rounded-lg transition-all ${selectedTeamId ? 'bg-brand-primary text-white hover:brightness-110' : 'bg-white/20 text-white/50 cursor-not-allowed'}`}>
+                            Add to Tournament
                         </button>
                     </div>
                 </form>
             </Modal>
 
-            {/* Schedule Match Modal */}
-            <Modal isOpen={scheduleModalOpen} onClose={() => setScheduleModalOpen(false)} title="Schedule Match">
-                <form onSubmit={handleScheduleSubmit} className="space-y-4">
-                    <div className="text-center mb-4 p-4 bg-white/5 rounded-lg">
-                        <span className="font-bold">{selectedMatch?.team1?.name}</span>
-                        <span className="text-white/40 mx-2">vs</span>
-                        <span className="font-bold">{selectedMatch?.team2?.name}</span>
-                    </div>
+            {/* Create Match Modal */}
+            <Modal isOpen={matchModalOpen} onClose={() => setMatchModalOpen(false)} title="Create Match">
+                <form onSubmit={handleCreateMatch} className="space-y-4">
                     <div>
-                        <label className="block text-sm font-bold text-white/80 mb-2 uppercase tracking-wider">Date</label>
-                        <input
-                            type="date"
-                            value={scheduleData.scheduled_date}
-                            onChange={(e) => setScheduleData({ ...scheduleData, scheduled_date: e.target.value })}
+                        <label className="block text-sm font-bold text-white/80 mb-2 uppercase tracking-wider">Team 1</label>
+                        <select
+                            value={matchFormData.team1_id}
+                            onChange={(e) => setMatchFormData({ ...matchFormData, team1_id: e.target.value })}
                             className="w-full bg-black/50 border border-white/20 p-4 rounded-lg focus:outline-none focus:border-brand-primary text-white"
-                        />
+                            required
+                        >
+                            <option value="">Select team...</option>
+                            {teams.map(t => (
+                                <option key={t.id} value={t.id}>{t.name}</option>
+                            ))}
+                        </select>
                     </div>
+                    <div className="text-center text-2xl font-black text-white/40">VS</div>
                     <div>
-                        <label className="block text-sm font-bold text-white/80 mb-2 uppercase tracking-wider">Time</label>
-                        <input
-                            type="time"
-                            value={scheduleData.scheduled_time}
-                            onChange={(e) => setScheduleData({ ...scheduleData, scheduled_time: e.target.value })}
+                        <label className="block text-sm font-bold text-white/80 mb-2 uppercase tracking-wider">Team 2</label>
+                        <select
+                            value={matchFormData.team2_id}
+                            onChange={(e) => setMatchFormData({ ...matchFormData, team2_id: e.target.value })}
                             className="w-full bg-black/50 border border-white/20 p-4 rounded-lg focus:outline-none focus:border-brand-primary text-white"
-                        />
+                            required
+                        >
+                            <option value="">Select team...</option>
+                            {teams.map(t => (
+                                <option key={t.id} value={t.id}>{t.name}</option>
+                            ))}
+                        </select>
                     </div>
+
+                    {/* Scheduling Section */}
+                    <div className="border-t border-white/10 pt-4 mt-4">
+                        <h4 className="text-sm font-bold text-white/60 mb-4 uppercase tracking-wider">Schedule (Optional)</h4>
+                        <ThemeProvider theme={darkTheme}>
+                            <LocalizationProvider dateAdapter={AdapterDayjs}>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-xs text-white/60 mb-2">Date</label>
+                                        <DatePicker
+                                            value={matchFormData.scheduled_date ? dayjs(matchFormData.scheduled_date) : null}
+                                            onChange={(newValue) => setMatchFormData({
+                                                ...matchFormData,
+                                                scheduled_date: newValue ? newValue.format('YYYY-MM-DD') : ''
+                                            })}
+                                            slotProps={{
+                                                textField: {
+                                                    fullWidth: true,
+                                                    size: 'small',
+                                                    sx: {
+                                                        '& .MuiOutlinedInput-root': {
+                                                            backgroundColor: 'rgba(0,0,0,0.5)',
+                                                            borderRadius: '0.5rem',
+                                                        },
+                                                    }
+                                                }
+                                            }}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs text-white/60 mb-2">Time</label>
+                                        <TimePicker
+                                            value={matchFormData.scheduled_time ? dayjs(matchFormData.scheduled_time, 'HH:mm') : null}
+                                            onChange={(newValue) => setMatchFormData({
+                                                ...matchFormData,
+                                                scheduled_time: newValue ? newValue.format('HH:mm') : ''
+                                            })}
+                                            slotProps={{
+                                                textField: {
+                                                    fullWidth: true,
+                                                    size: 'small',
+                                                    sx: {
+                                                        '& .MuiOutlinedInput-root': {
+                                                            backgroundColor: 'rgba(0,0,0,0.5)',
+                                                            borderRadius: '0.5rem',
+                                                        },
+                                                    }
+                                                }
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+                            </LocalizationProvider>
+                        </ThemeProvider>
+                        <div className="mt-4">
+                            <label className="block text-xs text-white/60 mb-2">Location / Venue</label>
+                            <input
+                                type="text"
+                                placeholder="e.g. Main Stage, Court A, Online"
+                                value={matchFormData.location}
+                                onChange={(e) => setMatchFormData({ ...matchFormData, location: e.target.value })}
+                                className="w-full bg-black/50 border border-white/20 p-3 rounded-lg focus:outline-none focus:border-brand-primary text-white"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="flex gap-4 pt-4">
+                        <button type="button" onClick={() => setMatchModalOpen(false)} className="flex-1 py-3 border border-white/20 text-white font-bold rounded-lg hover:bg-white/10">
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            disabled={!matchFormData.team1_id || !matchFormData.team2_id || matchFormData.team1_id === matchFormData.team2_id}
+                            className={`flex-1 py-3 font-bold rounded-lg transition-all ${matchFormData.team1_id && matchFormData.team2_id && matchFormData.team1_id !== matchFormData.team2_id
+                                    ? 'bg-brand-primary text-white hover:brightness-110'
+                                    : 'bg-white/20 text-white/50 cursor-not-allowed'
+                                }`}
+                        >
+                            Create Match
+                        </button>
+                    </div>
+                </form>
+            </Modal>
+
+            {/* Edit Match Modal */}
+            <Modal isOpen={scheduleModalOpen} onClose={() => setScheduleModalOpen(false)} title="Edit Match">
+                <form onSubmit={handleEditSubmit} className="space-y-4">
+                    {/* Team Selection */}
                     <div>
-                        <label className="block text-sm font-bold text-white/80 mb-2 uppercase tracking-wider">Location / Venue</label>
-                        <input
-                            type="text"
-                            placeholder="e.g. Main Stage, Online, Arena A"
-                            value={scheduleData.location}
-                            onChange={(e) => setScheduleData({ ...scheduleData, location: e.target.value })}
+                        <label className="block text-sm font-bold text-white/80 mb-2 uppercase tracking-wider">Team 1</label>
+                        <select
+                            value={editData.team1_id}
+                            onChange={(e) => setEditData({ ...editData, team1_id: e.target.value })}
                             className="w-full bg-black/50 border border-white/20 p-4 rounded-lg focus:outline-none focus:border-brand-primary text-white"
-                        />
+                            required
+                        >
+                            <option value="">Select team...</option>
+                            {teams.map(t => (
+                                <option key={t.id} value={t.id}>{t.name}</option>
+                            ))}
+                        </select>
                     </div>
+                    <div className="text-center text-2xl font-black text-white/40">VS</div>
+                    <div>
+                        <label className="block text-sm font-bold text-white/80 mb-2 uppercase tracking-wider">Team 2</label>
+                        <select
+                            value={editData.team2_id}
+                            onChange={(e) => setEditData({ ...editData, team2_id: e.target.value })}
+                            className="w-full bg-black/50 border border-white/20 p-4 rounded-lg focus:outline-none focus:border-brand-primary text-white"
+                            required
+                        >
+                            <option value="">Select team...</option>
+                            {teams.map(t => (
+                                <option key={t.id} value={t.id}>{t.name}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {/* Scheduling Section */}
+                    <div className="border-t border-white/10 pt-4 mt-4">
+                        <h4 className="text-sm font-bold text-white/60 mb-4 uppercase tracking-wider">Schedule</h4>
+                        <ThemeProvider theme={darkTheme}>
+                            <LocalizationProvider dateAdapter={AdapterDayjs}>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-xs text-white/60 mb-2">Date</label>
+                                        <DatePicker
+                                            value={editData.scheduled_date ? dayjs(editData.scheduled_date) : null}
+                                            onChange={(newValue) => setEditData({
+                                                ...editData,
+                                                scheduled_date: newValue ? newValue.format('YYYY-MM-DD') : ''
+                                            })}
+                                            slotProps={{
+                                                textField: {
+                                                    fullWidth: true,
+                                                    size: 'small',
+                                                    sx: {
+                                                        '& .MuiOutlinedInput-root': {
+                                                            backgroundColor: 'rgba(0,0,0,0.5)',
+                                                            borderRadius: '0.5rem',
+                                                        },
+                                                    }
+                                                }
+                                            }}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs text-white/60 mb-2">Time</label>
+                                        <TimePicker
+                                            value={editData.scheduled_time ? dayjs(editData.scheduled_time, 'HH:mm') : null}
+                                            onChange={(newValue) => setEditData({
+                                                ...editData,
+                                                scheduled_time: newValue ? newValue.format('HH:mm') : ''
+                                            })}
+                                            slotProps={{
+                                                textField: {
+                                                    fullWidth: true,
+                                                    size: 'small',
+                                                    sx: {
+                                                        '& .MuiOutlinedInput-root': {
+                                                            backgroundColor: 'rgba(0,0,0,0.5)',
+                                                            borderRadius: '0.5rem',
+                                                        },
+                                                    }
+                                                }
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+                            </LocalizationProvider>
+                        </ThemeProvider>
+                        <div className="mt-4">
+                            <label className="block text-xs text-white/60 mb-2">Location / Venue</label>
+                            <input
+                                type="text"
+                                placeholder="e.g. Main Stage, Online, Arena A"
+                                value={editData.location}
+                                onChange={(e) => setEditData({ ...editData, location: e.target.value })}
+                                className="w-full bg-black/50 border border-white/20 p-3 rounded-lg focus:outline-none focus:border-brand-primary text-white"
+                            />
+                        </div>
+                    </div>
+
                     <div className="flex gap-4 pt-4">
                         <button type="button" onClick={() => setScheduleModalOpen(false)} className="flex-1 py-3 border border-white/20 text-white font-bold rounded-lg hover:bg-white/10">
                             Cancel
                         </button>
-                        <button type="submit" className="flex-1 py-3 bg-blue-500 text-white font-bold rounded-lg hover:brightness-110">
-                            Save Schedule
-                        </button>
-                    </div>
-                </form>
-            </Modal>
-
-            {/* Update Result Modal */}
-            <Modal isOpen={resultModalOpen} onClose={() => setResultModalOpen(false)} title="Update Match Result">
-                <form onSubmit={handleResultSubmit} className="space-y-4">
-                    <div className="text-center mb-4 p-4 bg-white/5 rounded-lg">
-                        <span className="font-bold">{selectedMatch?.team1?.name}</span>
-                        <span className="text-white/40 mx-2">vs</span>
-                        <span className="font-bold">{selectedMatch?.team2?.name}</span>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-bold text-white/80 mb-2 uppercase tracking-wider">Score</label>
-                        <input
-                            type="text"
-                            placeholder="e.g. 2-1, 16-14, 3-0"
-                            value={resultData.score}
-                            onChange={(e) => setResultData({ ...resultData, score: e.target.value })}
-                            className="w-full bg-black/50 border border-white/20 p-4 rounded-lg focus:outline-none focus:border-brand-primary text-white"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-bold text-white/80 mb-2 uppercase tracking-wider">Winner</label>
-                        <div className="grid grid-cols-2 gap-4">
-                            <button
-                                type="button"
-                                onClick={() => setResultData({ ...resultData, winner_id: selectedMatch?.team1?.id })}
-                                className={`p-4 rounded-lg font-bold transition-all ${resultData.winner_id === selectedMatch?.team1?.id
-                                    ? 'bg-brand-secondary text-black'
-                                    : 'bg-white/10 hover:bg-white/20'
-                                    }`}
-                            >
-                                {selectedMatch?.team1?.name}
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setResultData({ ...resultData, winner_id: selectedMatch?.team2?.id })}
-                                className={`p-4 rounded-lg font-bold transition-all ${resultData.winner_id === selectedMatch?.team2?.id
-                                    ? 'bg-brand-secondary text-black'
-                                    : 'bg-white/10 hover:bg-white/20'
-                                    }`}
-                            >
-                                {selectedMatch?.team2?.name}
-                            </button>
-                        </div>
-                    </div>
-                    <div className="flex gap-4 pt-4">
-                        <button type="button" onClick={() => setResultModalOpen(false)} className="flex-1 py-3 border border-white/20 text-white font-bold rounded-lg hover:bg-white/10">
-                            Cancel
-                        </button>
-                        <button type="submit" className="flex-1 py-3 bg-green-500 text-white font-bold rounded-lg hover:brightness-110">
-                            Save Result
+                        <button
+                            type="submit"
+                            disabled={editData.team1_id === editData.team2_id}
+                            className={`flex-1 py-3 font-bold rounded-lg transition-all ${editData.team1_id !== editData.team2_id
+                                    ? 'bg-brand-primary text-white hover:brightness-110'
+                                    : 'bg-white/20 text-white/50 cursor-not-allowed'
+                                }`}
+                        >
+                            Save Changes
                         </button>
                     </div>
                 </form>

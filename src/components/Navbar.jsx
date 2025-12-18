@@ -25,6 +25,7 @@ export default function Navbar() {
       <div className="flex gap-8 font-medium">
         <Link to="/tournaments" className="hover:text-brand-primary transition-colors">Tournaments</Link>
         <Link to="/teams" className="hover:text-brand-secondary transition-colors">Teams</Link>
+        <Link to="/matches" className="hover:text-brand-primary transition-colors">Matches</Link>
         <Link to="/about" className="hover:text-white/70 transition-colors">About</Link>
       </div>
       

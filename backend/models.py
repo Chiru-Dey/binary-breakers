@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional, List
-from sqlalchemy import String, Integer, DateTime, ForeignKey, Enum
+from sqlalchemy import String, Integer, DateTime, ForeignKey, Enum, Table, Column
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from backend.extensions import db
 import enum
@@ -9,6 +9,14 @@ class TournamentStatus(str, enum.Enum):
     PLANNED = "Planned"
     ACTIVE = "Active"
     COMPLETED = "Completed"
+
+# Many-to-many association table for teams and tournaments
+tournament_teams = Table(
+    'tournament_teams',
+    db.Model.metadata,
+    Column('tournament_id', Integer, ForeignKey('tournaments.id'), primary_key=True),
+    Column('team_id', Integer, ForeignKey('teams.id'), primary_key=True)
+)
 
 class Tournament(db.Model):
     __tablename__ = 'tournaments'
@@ -20,7 +28,7 @@ class Tournament(db.Model):
     status: Mapped[TournamentStatus] = mapped_column(Enum(TournamentStatus), default=TournamentStatus.PLANNED)
 
     # Relationships
-    teams: Mapped[List["Team"]] = relationship(back_populates="tournament", cascade="all, delete-orphan")
+    teams: Mapped[List["Team"]] = relationship(secondary=tournament_teams, back_populates="tournaments")
     matches: Mapped[List["Match"]] = relationship(back_populates="tournament", cascade="all, delete-orphan")
 
     def to_dict(self):
@@ -38,16 +46,14 @@ class Team(db.Model):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
-    tournament_id: Mapped[int] = mapped_column(ForeignKey('tournaments.id'), nullable=False)
 
-    # Relationships
-    tournament: Mapped["Tournament"] = relationship(back_populates="teams")
+    # Relationships - many-to-many with tournaments
+    tournaments: Mapped[List["Tournament"]] = relationship(secondary=tournament_teams, back_populates="teams")
 
     def to_dict(self):
         return {
             "id": self.id,
-            "name": self.name,
-            "tournament_id": self.tournament_id
+            "name": self.name
         }
 
 class Match(db.Model):

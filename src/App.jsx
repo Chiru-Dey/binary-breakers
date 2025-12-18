@@ -7,6 +7,8 @@ import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
 import TournamentDetails from './pages/TournamentDetails';
 import Teams from './pages/Teams';
+import Matches from './pages/Matches';
+import MatchDetail from './pages/MatchDetail';
 import About from './pages/About';
 import CreateTournament from './pages/CreateTournament';
 
@@ -42,6 +44,8 @@ function App() {
           <Route path="/tournaments" element={<Dashboard />} />
           <Route path="/tournaments/:id" element={<TournamentDetails />} />
           <Route path="/teams" element={<Teams />} />
+          <Route path="/matches" element={<Matches />} />
+          <Route path="/matches/:id" element={<MatchDetail />} />
           <Route path="/about" element={<About />} />
           <Route path="/create" element={<CreateTournament />} />
         </Routes>
